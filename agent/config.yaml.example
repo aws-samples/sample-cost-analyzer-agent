@@ -1,0 +1,132 @@
+# FinOps Agent - Deployment Configuration
+# This file is used during agent deployment to AWS Bedrock AgentCore
+
+aws:
+  region: us-east-1  # Your AWS region
+
+# AgentCore Deployment Configuration
+agentcore:
+  execution_role_arn: ""  # Optional: IAM role ARN (leave empty for auto-creation)
+
+# MCP (Model Context Protocol) Configuration
+mcp:
+  enabled: true
+  servers:
+    # AWS Knowledge MCP Server (HTTP)
+    aws_knowledge:
+      type: http
+      url: https://knowledge-mcp.global.api.aws
+      enabled: true
+
+# Tools Configuration
+tools:
+  enabled:
+    - date
+    - athena
+    - analysis
+    - billing
+    - mcp
+
+# Agent Model Configuration
+agent:
+  model:
+    provider: bedrock
+    model_id: global.anthropic.claude-sonnet-4-5-20250929-v1:0
+    temperature: 0.1
+    max_tokens: 8192  # Increased from 4096 to handle complex queries with multiple tool calls
+    
+    # Prompt Caching Configuration
+    # Reduces costs by 90% and latency by 85% for repeated prompts
+    # System prompt caching: Automatically enabled via SystemContentBlock in code
+    # Tool caching: Caches tool definitions across requests
+    cache_tools: true  # Enable tool caching (default cache type)
+    cache_ttl: "5m"    # Cache TTL: "5m" (5 minutes) or "1h" (1 hour)
+    
+    # Cache TTL Selection Guide:
+    # - "5m" (5 minutes): Use for interactive sessions with frequent queries (default)
+    #   Best for: CLI usage, active development, regular user interactions
+    # - "1h" (1 hour): Use for batch processing or less frequent queries
+    #   Best for: Scheduled jobs, infrequent access, long-running sessions
+    # 
+    # Cost savings example (per 100 queries):
+    # - Without caching: $1.50
+    # - With caching: $0.17 (88% reduction)
+
+# =============================================================================
+# Account Configuration
+# =============================================================================
+#
+# Athena settings for CUR (Cost and Usage Reports) and VPC Flow Logs are
+# configured per-account inside the accounts section. Each account can
+# optionally include an `athena` block with `cur` and/or `vpc_flowlogs`
+# sub-objects. Each sub-object requires: database, table.
+#
+# - Exactly one payer account is required. The payer must have a role_arn.
+# - Member accounts may omit role_arn when the agent runs in the same account
+#   (uses the AgentCore execution role credentials instead of STS AssumeRole).
+# - Athena config can appear on any account type (payer or member).
+#
+# Choose ONE of the scenarios below and uncomment it.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Scenario A: Centralized Logging Account
+# -----------------------------------------------------------------------------
+# The agent runs in a logging/analytics account (999999999999) that already
+# has both CUR and VPC Flow Log data in local Athena tables. The payer
+# account is only needed for billing API calls (Cost Explorer, Budgets, etc.).
+# No STS AssumeRole is needed for Athena queries since the data is local.
+#
+# accounts:
+#   # Payer account — used for billing APIs only (Cost Explorer, Budgets, etc.)
+#   # role_arn is required because the agent never runs in the payer account.
+#   - account_id: "111111111111"
+#     role_arn: "arn:aws:iam::111111111111:role/FinOpsAgentPayerRole"
+#     account_type: payer
+#
+#   # Local logging account — agent runs here, no role_arn needed.
+#   # Both CUR and VPC Flow Log Athena tables are in this account.
+#   - account_id: "999999999999"
+#     account_type: member
+#     athena:
+#       cur:
+#         database: cur_db
+#         table: cur_table
+#       vpc_flowlogs:
+#         database: vpc_db
+#         table: flow_logs
+
+# -----------------------------------------------------------------------------
+# Scenario B: Audit Account (Distributed Data)
+# -----------------------------------------------------------------------------
+# The agent runs in a dedicated audit account. CUR data lives in the payer
+# account, and VPC Flow Log data lives in individual member accounts. All
+# accounts require role_arn for cross-account access via STS AssumeRole.
+#
+# accounts:
+#   # Payer account — billing APIs and CUR Athena data
+#   - account_id: "111111111111"
+#     role_arn: "arn:aws:iam::111111111111:role/FinOpsAgentPayerRole"
+#     account_type: payer
+#     athena:
+#       cur:
+#         database: cur_db
+#         table: cur_table
+#
+#   # Member account with VPC Flow Log data
+#   - account_id: "222222222222"
+#     role_arn: "arn:aws:iam::222222222222:role/FinOpsAgentMemberRole"
+#     account_type: member
+#     athena:
+#       vpc_flowlogs:
+#         database: vpc_db
+#         table: flow_logs
+#
+#   # Another member account with VPC Flow Log data
+#   - account_id: "333333333333"
+#     role_arn: "arn:aws:iam::333333333333:role/FinOpsAgentMemberRole"
+#     account_type: member
+#     athena:
+#       vpc_flowlogs:
+#         database: vpc_db
+#         table: flow_logs

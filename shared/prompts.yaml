@@ -1,0 +1,599 @@
+# FinOps Agent - Prompt Library
+# 
+# This file contains pre-built prompts for common cost analysis scenarios.
+# You can customize these prompts or add your own!
+#
+# Format:
+#   categories:
+#     category_key:
+#       name: "Display Name"
+#       icon: "emoji"
+#       prompts:
+#         - title: "Prompt Title"
+#           prompt: "The actual prompt text"
+#
+# Tips:
+#   - Use | for multi-line prompts
+#   - Add # comments to document your custom prompts
+#   - Keep prompts clear and specific for best results
+
+categories:
+  cost_overview:
+    name: "Cost Overview & Trends"
+    icon: "💰"
+    prompts:
+      - title: "Monthly Cost Summary"
+        prompt: "Show me my total AWS costs for last month with a breakdown by top 5 services"
+      
+      - title: "Cost Trends (3 months)"
+        prompt: "What are my monthly cost trends for the last 3 months? Show me the total and breakdown by service"
+      
+      - title: "Week-over-Week Comparison"
+        prompt: "Compare my costs between last week and the week before. What changed?"
+      
+      - title: "Daily Spend Analysis"
+        prompt: "Show me my daily spending for the last 2 weeks with any notable spikes"
+
+  service_deep_dive:
+    name: "Service Deep Dive"
+    icon: "🔍"
+    prompts:
+      - title: "EC2 Cost Analysis"
+        prompt: "Analyze my EC2 costs for last month. Show me the total, breakdown by region, and identify the top 10 most expensive instances"
+      
+      - title: "S3 Storage Analysis"
+        prompt: "Analyze my S3 costs for last month. Show me total storage costs, data transfer costs, and identify my most expensive buckets"
+      
+      - title: "RDS Database Costs"
+        prompt: "Show me my RDS costs for last month, break it down by database engine, and identify the most expensive instances"
+      
+      - title: "Lambda Function Costs"
+        prompt: "Analyze my Lambda costs for last month. Show me total costs and identify the top 10 most expensive functions"
+      
+      - title: "ElastiCache Costs"
+        prompt: "Show me my ElastiCache costs for last month. Break it down by cluster and engine type (Redis/Memcached)"
+      
+      - title: "ECS/EKS Container Costs"
+        prompt: "Analyze my container costs (ECS/EKS) for last month. Show me cluster costs and the most expensive tasks/pods"
+
+  optimization:
+    name: "Cost Optimization"
+    icon: "✨"
+    prompts:
+      - title: "General Optimization Recommendations"
+        prompt: "Give me comprehensive cost optimization recommendations across all my AWS services"
+      
+      - title: "EC2 Rightsizing Opportunities"
+        prompt: "What are my EC2 rightsizing opportunities? Show me instances that are over-provisioned or underutilized"
+      
+      - title: "Savings Plans Analysis"
+        prompt: "Analyze my Savings Plans coverage and utilization. Where can I improve?"
+      
+      - title: "Reserved Instance Performance"
+        prompt: "Show me my Reserved Instance coverage and utilization. Am I getting good value?"
+      
+      - title: "Free Tier Usage"
+        prompt: "Show me my Free Tier usage. Am I close to exceeding any limits?"
+
+  resource_identification:
+    name: "Resource Identification"
+    icon: "📦"
+    prompts:
+      - title: "Top Cost Resources (All Services)"
+        prompt: "Show me the top 20 most expensive resources across all AWS services for last month"
+      
+      - title: "Expensive EC2 Instances"
+        prompt: "Which EC2 instances are costing me the most? Show me the top 15 with their costs"
+      
+      - title: "Expensive S3 Buckets"
+        prompt: "Which S3 buckets are costing me the most? Show me the top 10 with storage and transfer costs"
+      
+      - title: "Expensive ElastiCache Clusters"
+        prompt: "Show me my most expensive ElastiCache clusters for last month"
+      
+      - title: "Untagged Resources"
+        prompt: "Find all untagged resources that are generating significant costs. This is important for cost allocation"
+
+  budget_monitoring:
+    name: "Budget & Anomaly Detection"
+    icon: "📊"
+    prompts:
+      - title: "Budget Status"
+        prompt: "Show me all my AWS budgets and their current status. Am I on track?"
+      
+      - title: "Cost Anomalies"
+        prompt: "Detect any cost anomalies or unusual spending patterns in the last 30 days"
+      
+      - title: "Month-to-Date Spend"
+        prompt: "What's my spend so far this month compared to last month at the same point?"
+      
+      - title: "Forecast Next Month"
+        prompt: "Based on current trends, what will my costs be next month?"
+
+  data_transfer:
+    name: "Data Transfer & Networking"
+    icon: "🌐"
+    prompts:
+      - title: "Overall Data Transfer Costs"
+        prompt: "Show me all data transfer costs across all services for last month. Break it down by service and transfer type (inter-region, internet, inter-AZ)"
+      
+      - title: "Inter-Region Data Transfer"
+        prompt: "Analyze my inter-region data transfer costs for last month. Which regions are transferring the most data and what's the cost?"
+      
+      - title: "Internet Data Transfer (Egress)"
+        prompt: "Show me my internet data transfer (egress) costs for last month. Which services are generating the most outbound traffic?"
+      
+      - title: "CloudFront Data Transfer"
+        prompt: "Analyze my CloudFront data transfer costs for last month. Break it down by region and show me the most expensive distributions"
+      
+      - title: "NAT Gateway Costs"
+        prompt: "Show me my NAT Gateway costs for last month, including data processing charges. Which NAT Gateways are most expensive?"
+      
+      - title: "VPC Data Transfer"
+        prompt: |
+          Analyze my VPC data transfer costs for last month with comprehensive details:
+
+          1. COST OVERVIEW (use Cost Explorer):
+             - Total VPC data transfer costs
+             - Breakdown by transfer type (inter-AZ, VPC peering, PrivateLink, Transit Gateway)
+             - Trend comparison with previous month
+
+          2. RESOURCE-LEVEL ANALYSIS (use CUR Athena):
+             - Top 10 resources generating inter-AZ transfer costs with resource IDs
+             - Identify specific VPC peering connections with high costs
+             - List PrivateLink endpoints and their data processing charges
+             - Show Transit Gateway attachments with highest transfer volumes
+
+          3. OPTIMIZATION RECOMMENDATIONS:
+             - Identify resources that should be co-located in same AZ
+             - Suggest VPC endpoint usage for AWS services (S3, DynamoDB)
+             - Recommend consolidation opportunities for VPC peering
+             - Calculate potential savings from optimization
+
+          4. OPTIONAL DEEP DIVE:
+             - Ask if I want to analyze VPC Flow Logs to see actual traffic patterns
+             - If yes, identify which instances/IPs are generating the most traffic
+      
+      - title: "Inter-AZ Data Transfer (DTO)"
+        prompt: |
+          Analyze my Inter-AZ data transfer costs for last month:
+
+          1. COST BREAKDOWN:
+             - Total Inter-AZ data transfer costs across all services
+             - Breakdown by service (EC2, RDS, ELB, ECS, etc.)
+             - Identify which Availability Zones are generating the most transfer costs
+
+          2. RESOURCE IDENTIFICATION:
+             - Top 20 resources generating Inter-AZ transfer charges
+             - Show resource IDs, types, and their AZ locations
+             - Calculate cost per resource
+
+          3. OPTIMIZATION OPPORTUNITIES:
+             - Identify resources that communicate across AZs frequently
+             - Suggest co-location strategies (move resources to same AZ)
+             - Recommend architecture changes to minimize cross-AZ traffic
+             - Calculate potential monthly savings from optimization
+
+          4. TRAFFIC PATTERNS:
+             - If VPC Flow Logs are available, analyze actual traffic patterns
+             - Identify which resource pairs have highest cross-AZ communication
+      
+      - title: "ELB Data Transfer Analysis"
+        prompt: |
+          Analyze my Elastic Load Balancer (ELB/ALB/NLB) data transfer costs for last month:
+
+          1. COST OVERVIEW:
+             - Total ELB data transfer costs (all load balancer types)
+             - Breakdown by load balancer type (ALB, NLB, CLB)
+             - Breakdown by transfer type (processed bytes, LCU charges, cross-AZ)
+
+          2. LOAD BALANCER DETAILS:
+             - List all load balancers with their data transfer costs
+             - Show processed bytes per load balancer
+             - Identify load balancers with cross-AZ traffic
+
+          3. CROSS-AZ TRAFFIC:
+             - Calculate cross-AZ data transfer costs for each load balancer
+             - Identify which target instances are in different AZs
+             - Show the cost impact of cross-AZ target distribution
+
+          4. OPTIMIZATION RECOMMENDATIONS:
+             - Suggest enabling cross-zone load balancing optimization
+             - Recommend target placement strategies to minimize cross-AZ traffic
+             - Calculate potential savings from optimization
+             - Consider consolidation opportunities for underutilized load balancers
+      
+      - title: "S3 Data Transfer"
+        prompt: "Show me S3 data transfer costs for last month. Break it down by transfer type (internet egress, CloudFront, cross-region replication)"
+      
+      - title: "Data Transfer Optimization"
+        prompt: "Identify opportunities to reduce data transfer costs. Where am I spending the most and what can be optimized?"
+      
+      - title: "Direct Connect vs VPN Costs"
+        prompt: "Compare my Direct Connect and VPN costs for last month. Show me data transfer volumes and costs for each"
+      
+      - title: "API Gateway Data Transfer"
+        prompt: "Show me API Gateway data transfer costs for last month. Which APIs are generating the most traffic?"
+
+  pricing:
+    name: "Pricing Information"
+    icon: "💵"
+    prompts:
+      - title: "EC2 Instance Pricing"
+        prompt: "What's the pricing for t3.medium, m5.large, and c5.xlarge instances in us-east-1?"
+      
+      - title: "RDS Pricing Comparison"
+        prompt: "Compare pricing between db.t3.medium and db.r5.large for MySQL RDS in us-east-1"
+      
+      - title: "S3 Storage Class Pricing"
+        prompt: "What are the pricing differences between S3 Standard, Intelligent-Tiering, and Glacier?"
+      
+      - title: "Data Transfer Pricing"
+        prompt: "What are the data transfer pricing rates for internet egress, inter-region transfer, and inter-AZ transfer?"
+
+  vpc_flowlogs:
+    name: "VPC Flow Logs Analysis"
+    icon: "🔬"
+    prompts:
+      - title: "Top Network Talkers"
+        prompt: |
+          Analyze VPC Flow Logs to identify top network talkers for the last 24 hours:
+          
+          Query VPC Flow Logs and show me:
+          1. Top 20 source IP addresses by total bytes transferred (outbound traffic)
+          2. Top 20 destination IP addresses by total bytes received (inbound traffic)
+          3. Top 15 source-destination IP pairs with highest data transfer volumes
+          4. Protocol breakdown showing bytes transferred per protocol (TCP, UDP, ICMP, other)
+          5. Port analysis: which destination ports are handling the most traffic
+          
+          For each top talker, include:
+          - IP address and associated instance ID (if available)
+          - Total bytes transferred
+          - Number of connections/flows
+          - Primary protocols and ports used
+          - Whether traffic is internal (VPC) or external (internet)
+          
+          Highlight any unusual patterns such as:
+          - Single IPs with exceptionally high traffic volumes
+          - Unexpected protocols or ports
+          - Potential data exfiltration indicators
+      
+      - title: "Cross-AZ Traffic Investigation"
+        prompt: |
+          Investigate cross-AZ traffic patterns using VPC Flow Logs for the last 7 days:
+          
+          Analyze inter-Availability Zone data transfer:
+          1. Total bytes transferred between different AZs (aggregate by AZ pair)
+          2. Top 25 instance pairs communicating across AZs with their data volumes
+          3. Breakdown by application/service based on destination ports:
+             - Web traffic (80, 443)
+             - Database traffic (3306, 5432, 1521, 1433, 27017)
+             - Cache traffic (6379, 11211)
+             - Message queues (5672, 9092, 61616)
+             - Custom application ports
+          4. Time-series analysis: when does cross-AZ traffic peak?
+          
+          Cost impact analysis:
+          - Calculate estimated cross-AZ data transfer costs ($0.01 per GB in most regions)
+          - Identify the top 10 most expensive cross-AZ communication patterns
+          - Show potential monthly cost if current patterns continue
+          
+          Optimization recommendations:
+          - Which instance pairs should be co-located in the same AZ
+          - Estimated savings from co-location
+          - Architecture changes to minimize cross-AZ dependencies
+          - Consider using placement groups for tightly coupled workloads
+      
+      - title: "Rejected Traffic Analysis"
+        prompt: |
+          Analyze rejected and blocked traffic in VPC Flow Logs for the last 24 hours:
+          
+          Focus on flows with action=REJECT and show me:
+          
+          1. TOP REJECTED SOURCES:
+             - Top 20 source IPs attempting rejected connections
+             - Number of rejection attempts per source
+             - Geographic origin (if external IPs)
+             - Potential threat classification (port scanning, brute force, etc.)
+          
+          2. TARGETED RESOURCES:
+             - Top 20 destination IPs receiving rejected traffic
+             - Associated instance IDs and security groups
+             - Which resources are most targeted
+          
+          3. PORT ANALYSIS:
+             - Top 20 destination ports being blocked
+             - Common attack vectors: SSH (22), RDP (3389), database ports, web admin panels
+             - Unusual or suspicious port combinations
+          
+          4. SECURITY INSIGHTS:
+             - Identify potential security threats (port scans, brute force attempts)
+             - Misconfigurations: legitimate traffic being blocked
+             - Recommendations for security group rule adjustments
+             - Sources that should be added to WAF deny lists
+          
+          5. PATTERNS:
+             - Time-based patterns: when do rejections spike?
+             - Repeated rejection patterns from same sources
+             - Distributed attack indicators (multiple sources, same target)
+      
+      - title: "Internet Gateway Traffic"
+        prompt: |
+          Analyze internet-bound traffic using VPC Flow Logs for the last 7 days:
+          
+          Focus on egress traffic to the internet (non-RFC1918 destinations):
+          
+          1. TOP INTERNET TALKERS:
+             - Top 20 instances sending data to the internet
+             - Total egress bytes per instance
+             - Instance types and associated applications
+             - Average daily egress volume per instance
+          
+          2. DESTINATION ANALYSIS:
+             - Top external destination IPs and domains (if available)
+             - Destination port breakdown (HTTPS, HTTP, DNS, NTP, custom)
+             - Identify traffic to AWS services vs external internet
+             - Geographic distribution of destinations
+          
+          3. PROTOCOL & APPLICATION BREAKDOWN:
+             - HTTPS (443): API calls, web browsing, downloads
+             - HTTP (80): unencrypted traffic (security concern)
+             - DNS (53): query volumes
+             - NTP (123): time synchronization
+             - Custom ports: identify application-specific traffic
+          
+          4. COST ANALYSIS:
+             - Calculate internet data transfer costs (first 10TB: $0.09/GB, next 40TB: $0.085/GB, etc.)
+             - Estimated monthly internet egress costs
+             - Top 10 most expensive instances for internet egress
+          
+          5. OPTIMIZATION OPPORTUNITIES:
+             - Instances that could benefit from CloudFront caching
+             - Traffic to AWS services that should use VPC endpoints (S3, DynamoDB, etc.)
+             - Opportunities to use AWS PrivateLink
+             - Potential for data compression or optimization
+             - Identify unnecessary internet traffic
+      
+      - title: "NAT Gateway Traffic Analysis"
+        prompt: |
+          Analyze traffic through NAT Gateways using VPC Flow Logs for the last 7 days:
+          
+          Identify NAT Gateway traffic (private subnet instances accessing internet):
+          
+          1. NAT GATEWAY USAGE:
+             - Total data processed through NAT Gateways
+             - Breakdown by NAT Gateway (if multiple)
+             - Peak usage times and patterns
+          
+          2. TOP NAT USERS:
+             - Top 20 instances using NAT Gateway by data volume
+             - Instance IDs, types, and private IPs
+             - Total bytes processed per instance
+             - Number of connections per instance
+          
+          3. DESTINATION ANALYSIS:
+             - Top external destinations accessed via NAT
+             - Common services: package repositories, APIs, SaaS platforms
+             - Identify traffic to AWS services (candidates for VPC endpoints)
+             - Port breakdown: HTTPS, HTTP, custom ports
+          
+          4. COST BREAKDOWN:
+             - NAT Gateway data processing charges ($0.045 per GB)
+             - NAT Gateway hourly charges ($0.045 per hour)
+             - Total estimated NAT Gateway costs
+             - Per-instance cost contribution
+          
+          5. OPTIMIZATION RECOMMENDATIONS:
+             - Instances accessing S3: use S3 VPC endpoint (free)
+             - Instances accessing DynamoDB: use DynamoDB VPC endpoint (free)
+             - Consider VPC endpoints for other AWS services (SQS, SNS, etc.)
+             - Calculate potential savings from VPC endpoints
+             - Evaluate if instances need internet access or can use PrivateLink
+             - Consider consolidating NAT Gateways if multiple exist
+      
+      - title: "Database Traffic Patterns"
+        prompt: |
+          Analyze database traffic patterns using VPC Flow Logs for the last 7 days:
+          
+          Focus on common database ports and analyze traffic patterns:
+          
+          Database ports to analyze:
+          - MySQL/Aurora MySQL: 3306
+          - PostgreSQL/Aurora PostgreSQL: 5432
+          - Oracle: 1521
+          - SQL Server: 1433
+          - MongoDB: 27017
+          - Redis: 6379
+          - Memcached: 11211
+          - Cassandra: 9042
+          - Elasticsearch: 9200, 9300
+          
+          1. DATABASE TRAFFIC OVERVIEW:
+             - Total bytes transferred to/from database ports
+             - Breakdown by database type/port
+             - Number of unique client connections per database
+             - Average connection duration and data volume
+          
+          2. CLIENT ANALYSIS:
+             - Top 20 clients (source IPs) connecting to databases
+             - Data volume per client
+             - Connection frequency and patterns
+             - Identify application servers vs direct connections
+          
+          3. CROSS-AZ DATABASE TRAFFIC:
+             - Database instances in different AZs than their clients
+             - Total cross-AZ bytes for database traffic
+             - Cost impact of cross-AZ database communication
+             - Specific instance pairs with high cross-AZ database traffic
+          
+          4. PERFORMANCE INDICATORS:
+             - High-volume database connections (potential optimization targets)
+             - Unusual traffic patterns (spikes, drops)
+             - Connections from unexpected sources
+             - Idle or low-utilization database instances
+          
+          5. SECURITY & OPTIMIZATION:
+             - Database instances accepting connections from internet (security risk)
+             - Databases with too many client connections (connection pooling needed)
+             - Recommendations for read replicas in client AZs
+             - Opportunities to use RDS Proxy for connection management
+             - Caching opportunities (Redis/Memcached) for high-read workloads
+      
+      - title: "Application Traffic Deep Dive"
+        prompt: |
+          Perform a deep dive into application tier traffic patterns for the last 24 hours:
+          
+          Analyze multi-tier application architecture traffic:
+          
+          1. TIER-TO-TIER COMMUNICATION:
+             - Web tier to application tier traffic volume
+             - Application tier to database tier traffic volume
+             - Application tier to cache tier traffic volume
+             - Cross-tier communication patterns
+          
+          2. LOAD BALANCER TRAFFIC:
+             - Traffic from load balancers to backend instances
+             - Distribution of traffic across backend instances
+             - Identify uneven load distribution
+             - Health check traffic vs actual application traffic
+          
+          3. MICROSERVICES COMMUNICATION:
+             - Service-to-service communication patterns
+             - Top 20 service pairs by traffic volume
+             - API gateway traffic patterns
+             - Service mesh traffic (if applicable)
+          
+          4. TRAFFIC PATTERNS:
+             - Peak traffic hours and volumes
+             - Request/response size analysis
+             - Connection duration patterns
+             - Keep-alive vs new connection ratios
+          
+          5. CROSS-AZ APPLICATION TRAFFIC:
+             - Which application components communicate across AZs
+             - Cost impact of cross-AZ application traffic
+             - Opportunities for AZ-aware routing
+          
+          6. PERFORMANCE INSIGHTS:
+             - High-latency indicators (large packet counts, retransmissions)
+             - Bottleneck identification (single instance handling too much traffic)
+             - Idle or underutilized instances
+             - Scaling recommendations based on traffic patterns
+          
+          7. OPTIMIZATION OPPORTUNITIES:
+             - Implement connection pooling where needed
+             - Use caching for frequently accessed data
+             - Consider service mesh for better traffic management
+             - Optimize cross-AZ communication patterns
+             - Right-size instances based on actual traffic
+      
+      - title: "Security Group Traffic Audit"
+        prompt: |
+          Audit traffic patterns for security group analysis over the last 7 days:
+          
+          Comprehensive security group traffic analysis:
+          
+          1. ACCEPTED TRAFFIC ANALYSIS:
+             - All unique source IPs successfully connecting
+             - Source IP classification: internal VPC, VPN, internet
+             - Destination ports being accessed
+             - Traffic volume per source-destination-port combination
+             - Protocol distribution (TCP, UDP, ICMP)
+          
+          2. REJECTED TRAFFIC ANALYSIS:
+             - Source IPs with rejected connection attempts
+             - Destination ports being blocked
+             - Frequency of rejection attempts per source
+             - Potential security threats vs misconfigurations
+          
+          3. SECURITY GROUP EFFECTIVENESS:
+             - Are security group rules too permissive?
+             - Identify unused rules (ports with no traffic)
+             - Identify missing rules (legitimate traffic being blocked)
+             - Overly broad CIDR ranges (0.0.0.0/0) with actual usage
+          
+          4. COMPLIANCE & BEST PRACTICES:
+             - Internet-facing resources (public IPs accepting traffic from 0.0.0.0/0)
+             - Management ports exposed to internet (SSH 22, RDP 3389)
+             - Database ports exposed to internet (security risk)
+             - Unencrypted traffic (HTTP vs HTTPS)
+          
+          5. RECOMMENDATIONS:
+             - Tighten security group rules based on actual traffic
+             - Remove unused rules
+             - Add rules for legitimate blocked traffic
+             - Implement least privilege access
+             - Use security group references instead of CIDR blocks
+             - Consider AWS Network Firewall for advanced filtering
+          
+          6. ANOMALY DETECTION:
+             - New source IPs not seen before
+             - Unusual port access patterns
+             - Traffic volume anomalies
+             - Potential security incidents
+      
+      - title: "Data Transfer Cost Attribution"
+        prompt: |
+          Analyze VPC Flow Logs to attribute data transfer costs for the last 7 days:
+          
+          Comprehensive cost attribution analysis:
+          
+          1. CROSS-AZ TRANSFER COSTS:
+             - Total cross-AZ bytes transferred
+             - Cost per instance ($0.01 per GB in most regions)
+             - Top 20 instances by cross-AZ transfer costs
+             - Breakdown by application/service
+          
+          2. NAT GATEWAY COSTS:
+             - Total bytes processed through NAT Gateways
+             - Data processing costs ($0.045 per GB)
+             - Hourly costs ($0.045 per hour per NAT Gateway)
+             - Top 20 instances by NAT Gateway usage costs
+          
+          3. INTERNET EGRESS COSTS:
+             - Total internet egress bytes
+             - Tiered pricing calculation:
+               * First 10 TB: $0.09 per GB
+               * Next 40 TB: $0.085 per GB
+               * Next 100 TB: $0.07 per GB
+               * Over 150 TB: $0.05 per GB
+             - Top 20 instances by internet egress costs
+          
+          4. COST BY RESOURCE:
+             - Total data transfer costs per instance
+             - Cost breakdown: cross-AZ + NAT + internet egress
+             - Identify most expensive instances
+             - Cost per application/service
+          
+          5. COST BY TRAFFIC TYPE:
+             - Database traffic costs
+             - Application traffic costs
+             - Backup/replication traffic costs
+             - Monitoring/logging traffic costs
+          
+          6. OPTIMIZATION OPPORTUNITIES:
+             - Estimated savings from co-locating instances in same AZ
+             - Estimated savings from VPC endpoints (S3, DynamoDB)
+             - Estimated savings from CloudFront caching
+             - Estimated savings from data compression
+             - ROI analysis for optimization efforts
+          
+          7. MONTHLY PROJECTION:
+             - Project monthly costs based on current patterns
+             - Identify cost trends (increasing/decreasing)
+             - Budget impact and forecasting
+
+# ============================================================================
+# CUSTOM PROMPTS
+# ============================================================================
+# Add your own custom prompts below! Follow the same format as above.
+#
+# Example:
+#
+# custom:
+#   name: "My Custom Queries"
+#   icon: "🎯"
+#   prompts:
+#     - title: "My Custom Query"
+#       prompt: "Your custom prompt text here"
+#
