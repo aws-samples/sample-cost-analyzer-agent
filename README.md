@@ -38,7 +38,7 @@ FinOps Agent solves both challenges — it unifies billing APIs, CUR resource-le
 ### 1. Clone and configure
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/aws-samples/sample-cost-analyzer-agent.git
 cd finops-agent
 cp agent/config.yaml.example agent/config.yaml
 ```
