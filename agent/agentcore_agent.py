@@ -1,5 +1,5 @@
 """
-FinOps Agent for Bedrock AgentCore
+Cost Analyzer Agent for Bedrock AgentCore
 Deployed via AgentCore with Strands Agents SDK
 
 Features:
@@ -30,7 +30,7 @@ logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
-logger = logging.getLogger("FinOpsAgent")
+logger = logging.getLogger("CostAnalyzerAgent")
 
 # Initialize AgentCore app
 app = BedrockAgentCoreApp()
@@ -48,7 +48,7 @@ def _initialize_agent():
         return _agent
     
     start_time = time.time()
-    logger.info("Initializing FinOps Agent...")
+    logger.info("Initializing Cost Analyzer Agent...")
     
     # Load configuration
     config = ConfigService("agent/config.yaml")

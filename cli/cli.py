@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-FinOps Agent - CLI Interface for AgentCore
+Cost Analyzer Agent - CLI Interface for AgentCore
 Invokes the deployed Bedrock AgentCore agent via AWS SDK
 """
 import sys
@@ -443,7 +443,7 @@ def load_agent_config():
 def main():
     """Main entry point for CLI"""
     parser = argparse.ArgumentParser(
-        description="FinOps Agent - AgentCore CLI Interface"
+        description="Cost Analyzer Agent - AgentCore CLI Interface"
     )
     parser.add_argument(
         '-i', '--interactive',
@@ -482,11 +482,11 @@ def main():
         print("\nPlease provide agent ID using one of these methods:")
         print("  1. Add to shared/client.yaml:")
         print("     agentcore:")
-        print("       agent_id: finops_agent-5gTQmv5pqK")
-        print("  2. Use --agent-id flag: --agent-id finops_agent-5gTQmv5pqK")
+        print("       agent_id: cost_analyzer_agent-5gTQmv5pqK")
+        print("  2. Use --agent-id flag: --agent-id cost_analyzer_agent-5gTQmv5pqK")
         print("  3. Add to .bedrock_agentcore.yaml with agent_id field")
         print("\nExample:")
-        print("  ./cli/cli.sh -a finops_agent-5gTQmv5pqK -q 'What are my costs?'")
+        print("  ./cli/cli.sh -a cost_analyzer_agent-5gTQmv5pqK -q 'What are my costs?'")
         sys.exit(1)
     
     # Create CLI client

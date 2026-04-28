@@ -1,6 +1,6 @@
-# FinOps Agent - CLI Interface
+# Cost Analyzer Agent - CLI Interface
 
-Command-line interface for interacting with your deployed FinOps Agent.
+Command-line interface for interacting with your deployed Cost Analyzer Agent.
 
 ## Quick Start
 
@@ -68,7 +68,7 @@ The CLI reads the agent ID from `shared/client.yaml`, which is automatically cre
 
 ```yaml
 agentcore:
-  agent_id: finops_agent-5gTQmv5pqK  # Auto-populated by deploy.sh
+  agent_id: cost_analyzer_agent-5gTQmv5pqK  # Auto-populated by deploy.sh
 ```
 
 This configuration is shared with the frontend, so both interfaces use the same agent.
@@ -83,7 +83,7 @@ nano shared/client.yaml
 You can also specify the agent ID directly:
 
 ```bash
-./cli/cli.sh -a finops_agent-5gTQmv5pqK -q "What are my costs?"
+./cli/cli.sh -a cost_analyzer_agent-5gTQmv5pqK -q "What are my costs?"
 ```
 
 ## Requirements

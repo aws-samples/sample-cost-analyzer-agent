@@ -1,1 +1,1 @@
-"""Tools package for FinOps Agent."""
+"""Tools package for Cost Analyzer Agent."""

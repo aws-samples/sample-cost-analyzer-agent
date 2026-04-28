@@ -39,7 +39,7 @@ class SessionManager:
     # to limit the window of exposure if credentials are compromised.
     # Credentials are automatically refreshed when they expire.
     SESSION_DURATION_SECONDS = 900  # 15 minutes
-    AGENT_SESSION_PREFIX = "finops-agent"
+    AGENT_SESSION_PREFIX = "cost-analyzer-agent"
 
     def __init__(self, account_registry: AccountRegistry, sts_client=None):
         self._registry = account_registry

@@ -1,5 +1,5 @@
 """
-FinOps Agent - Streamlit Frontend
+Cost Analyzer Agent - Streamlit Frontend
 Based on AWS AgentCore official Streamlit example
 """
 import json
@@ -31,7 +31,7 @@ else:
 
 # Page config
 st.set_page_config(
-    page_title="FinOps Agent",
+    page_title="Cost Analyzer Agent",
     page_icon="💰",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -611,7 +611,7 @@ def main():
     initialize_session_state()
     
     # Header
-    st.title("💰 FinOps Agent")
+    st.title("💰 Cost Analyzer Agent")
     st.caption("AI-powered AWS cost optimization agent")
     
     # Show debug mode indicator

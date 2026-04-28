@@ -1,5 +1,5 @@
 #!/bin/bash
-# Launcher for FinOps Agent Streamlit App
+# Launcher for Cost Analyzer Agent Streamlit App
 
 # Colors
 GREEN='\033[0;32m'
@@ -15,7 +15,7 @@ if [ "$1" == "--debug" ] || [ "$1" == "-d" ]; then
     echo -e "${YELLOW}🔍 Debug mode enabled${NC}\n"
 fi
 
-echo -e "${BLUE}🚀 Starting FinOps Agent Web App...${NC}\n"
+echo -e "${BLUE}🚀 Starting Cost Analyzer Agent Web App...${NC}\n"
 
 # Get the project root directory (parent of frontend)
 PROJECT_ROOT="$(cd "$(dirname "$0")/.." && pwd)"

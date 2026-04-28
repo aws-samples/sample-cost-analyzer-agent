@@ -1,1 +1,1 @@
-"""FinOps Agent for Amazon Bedrock AgentCore."""
+"""Cost Analyzer Agent for Amazon Bedrock AgentCore."""

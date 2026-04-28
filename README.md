@@ -1,8 +1,8 @@
-# FinOps Agent
+# Cost Analyzer Agent
 
 > ⚠️ **Disclaimer:** Code is provided under MIT-0 license. Review, fine tune, and test before using it in production. Review all configurations, IAM permissions, and costs before deploying in any environment.
 
-FinOps Agent helps teams analyze, understand, and optimize AWS costs across multiple accounts using natural language. Built with [Amazon Bedrock AgentCore](https://docs.aws.amazon.com/bedrock/latest/userguide/agents.html) and [Strands Agents](https://github.com/awslabs/strands-agents), it combines 43 billing APIs, Cost and Usage Report (CUR) analysis, and VPC Flow Log network insights into a single conversational interface — accessible via CLI or web UI.
+Cost Analyzer Agent helps teams analyze, understand, and optimize AWS costs across multiple accounts using natural language. Built with [Amazon Bedrock AgentCore](https://docs.aws.amazon.com/bedrock/latest/userguide/agents.html) and [Strands Agents](https://github.com/awslabs/strands-agents), it combines 43 billing APIs, Cost and Usage Report (CUR) analysis, and VPC Flow Log network insights into a single conversational interface — accessible via CLI or web UI.
 
 ## The Challenge
 
@@ -10,7 +10,7 @@ Managing AWS costs at scale is complex. FinOps teams juggle multiple disconnecte
 
 Beyond billing data, a critical blind spot exists: data transfer costs. Existing cost tools can tell you data transfer is expensive, but can't pinpoint *which network flows between which resources* are driving those costs. VPC Flow Logs hold this answer, but no native AWS tool correlates flow log data with billing data automatically.
 
-FinOps Agent solves both challenges — it unifies billing APIs, CUR resource-level analysis, and VPC Flow Log network insights behind a single natural language interface. Ask a question in plain English, and the agent determines which data sources to query, correlates the results, and delivers actionable recommendations.
+Cost Analyzer Agent solves both challenges — it unifies billing APIs, CUR resource-level analysis, and VPC Flow Log network insights behind a single natural language interface. Ask a question in plain English, and the agent determines which data sources to query, correlates the results, and delivers actionable recommendations.
 
 ## Features
 
@@ -23,7 +23,7 @@ FinOps Agent solves both challenges — it unifies billing APIs, CUR resource-le
 
 ## Architecture
 
-![FinOps Agent Architecture](docs/finops-agent-architecture.png)
+![Cost Analyzer Agent Architecture](docs/cost-analyzer-agent-architecture.png)
 
 ## Prerequisites
 
@@ -39,7 +39,7 @@ FinOps Agent solves both challenges — it unifies billing APIs, CUR resource-le
 
 ```bash
 git clone https://github.com/aws-samples/sample-cost-analyzer-agent.git
-cd finops-agent
+cd cost-analyzer-agent
 cp agent/config.yaml.example agent/config.yaml
 ```
 
@@ -48,7 +48,7 @@ Edit `agent/config.yaml` with your accounts and Athena settings. See [Configurat
 ```yaml
 accounts:
   - account_id: "111111111111"
-    role_arn: "arn:aws:iam::111111111111:role/FinOpsAgentPayerRole"
+    role_arn: "arn:aws:iam::111111111111:role/CostAnalyzerAgentPayerRole"
     account_type: payer
     athena:
       cur:

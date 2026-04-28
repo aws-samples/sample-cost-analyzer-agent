@@ -94,7 +94,7 @@ Agent runs in the same account as CUR/VPC data. No STS calls needed for Athena q
 accounts:
   # Payer — billing APIs only
   - account_id: "111111111111"
-    role_arn: "arn:aws:iam::111111111111:role/FinOpsAgentPayerRole"
+    role_arn: "arn:aws:iam::111111111111:role/CostAnalyzerAgentPayerRole"
     account_type: payer
 
   # Local account — agent runs here, no role_arn needed
@@ -116,7 +116,7 @@ Agent runs in a separate account. CUR in payer, VPC logs in member accounts. All
 ```yaml
 accounts:
   - account_id: "111111111111"
-    role_arn: "arn:aws:iam::111111111111:role/FinOpsAgentPayerRole"
+    role_arn: "arn:aws:iam::111111111111:role/CostAnalyzerAgentPayerRole"
     account_type: payer
     athena:
       cur:
@@ -124,7 +124,7 @@ accounts:
         table: cur_table
 
   - account_id: "222222222222"
-    role_arn: "arn:aws:iam::222222222222:role/FinOpsAgentMemberRole"
+    role_arn: "arn:aws:iam::222222222222:role/CostAnalyzerAgentMemberRole"
     account_type: member
     athena:
       vpc_flowlogs:

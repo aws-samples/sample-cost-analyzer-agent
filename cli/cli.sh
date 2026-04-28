@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# FinOps Agent - AgentCore CLI Interface
+# Cost Analyzer Agent - AgentCore CLI Interface
 # Invokes the deployed Bedrock AgentCore agent
 
 set -e
@@ -37,7 +37,7 @@ fi
 # Function to display help
 show_help() {
     cat << EOF
-${GREEN}FinOps Agent - AgentCore CLI Interface${NC}
+${GREEN}Cost Analyzer Agent - AgentCore CLI Interface${NC}
 
 This CLI invokes your deployed Bedrock AgentCore agent via AWS SDK.
 
@@ -61,7 +61,7 @@ Examples:
   $0 -q "What were my top 5 services by cost last month?"
 
   # With specific agent ID
-  $0 -a finops_agent-5gTQmv5pqK -q "Show me EC2 costs"
+  $0 -a cost_analyzer_agent-5gTQmv5pqK -q "Show me EC2 costs"
 
   # With verbose logging
   $0 -v -q "Analyze my S3 costs"
@@ -76,7 +76,7 @@ Interactive Commands:
 Configuration:
   Add agent_id to shared/client.yaml:
     agentcore:
-      agent_id: finops_agent-5gTQmv5pqK
+      agent_id: cost_analyzer_agent-5gTQmv5pqK
 
 Requirements:
   - AWS credentials configured (aws configure)
@@ -146,7 +146,7 @@ fi
 # Execute based on mode
 if [ "$INTERACTIVE" = true ]; then
     echo -e "${GREEN}╔════════════════════════════════════════════════════════════╗${NC}"
-    echo -e "${GREEN}║   FinOps Agent - AgentCore Interactive CLI Mode            ║${NC}"
+    echo -e "${GREEN}║   Cost Analyzer Agent - AgentCore Interactive CLI Mode            ║${NC}"
     echo -e "${GREEN}╚════════════════════════════════════════════════════════════╝${NC}"
     echo ""
     echo -e "${BLUE}Connecting to your deployed AgentCore agent...${NC}"

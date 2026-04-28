@@ -1,6 +1,6 @@
 # IAM Permissions
 
-This document covers the four IAM roles required for the FinOps Agent. Each role serves a distinct purpose in the deployment and runtime flow.
+This document covers the four IAM roles required for the Cost Analyzer Agent. Each role serves a distinct purpose in the deployment and runtime flow.
 
 ```
 ┌──────────────────────────────────────────────────────────────────────┐
@@ -147,8 +147,8 @@ This role needs:
       "Effect": "Allow",
       "Action": "sts:AssumeRole",
       "Resource": [
-        "arn:aws:iam::PAYER_ACCOUNT_ID:role/FinOpsAgentPayerRole",
-        "arn:aws:iam::MEMBER_ACCOUNT_ID:role/FinOpsAgentMemberRole"
+        "arn:aws:iam::PAYER_ACCOUNT_ID:role/CostAnalyzerAgentPayerRole",
+        "arn:aws:iam::MEMBER_ACCOUNT_ID:role/CostAnalyzerAgentMemberRole"
       ]
     },
     {
@@ -221,7 +221,7 @@ Replace `PAYER_ACCOUNT_ID`, `MEMBER_ACCOUNT_ID`, and S3 bucket names with your a
 
 ---
 
-## 3. Payer Account Role (`FinOpsAgentPayerRole`)
+## 3. Payer Account Role (`CostAnalyzerAgentPayerRole`)
 
 This role lives in the payer (management) account. The AgentCore execution role assumes it to call billing APIs and optionally query CUR data via Athena.
 
@@ -396,7 +396,7 @@ If CUR Athena data is in the payer account (Scenario B), also add:
 
 ---
 
-## 4. Member Account Role (`FinOpsAgentMemberRole`)
+## 4. Member Account Role (`CostAnalyzerAgentMemberRole`)
 
 This role lives in each member account that has VPC Flow Log data in Athena. The AgentCore execution role assumes it to run Athena queries against VPC Flow Logs.
 
