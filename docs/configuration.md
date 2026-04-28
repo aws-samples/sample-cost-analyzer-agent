@@ -29,6 +29,7 @@ Each member account with VPC Flow Log analysis needs:
    - Configure via VPC Console → Flow Logs → Create
    - Destination: S3 bucket
    - File format: Parquet (recommended)
+   - **Important:** Use a custom log format (not the default) — see [VPC Flow Logs Custom Log Format](#vpc-flow-logs-custom-log-format) below
    - See [VPC Flow Logs to S3 guide](https://docs.aws.amazon.com/vpc/latest/userguide/flow-logs-s3.html)
 
 2. Athena workgroup with an S3 output location for query results
@@ -51,6 +52,42 @@ Each member account with VPC Flow Log analysis needs:
 | VPC Flow Log Athena results bucket | Stores Athena query output for VPC | Each member account |
 
 > These buckets can be combined (e.g., one results bucket per account), but the IAM roles must have access to all relevant buckets. See [IAM Permissions](iam-permissions.md) for details.
+
+### VPC Flow Logs Custom Log Format
+
+The agent's VPC Flow Log queries rely on fields that are **not included in the default log format**. You must configure a custom log format when creating your VPC Flow Logs.
+
+**Recommended custom log format:**
+
+```
+${version} ${account-id} ${interface-id} ${srcaddr} ${dstaddr} ${srcport} ${dstport} ${protocol} ${packets} ${bytes} ${start} ${end} ${action} ${log-status} ${vpc-id} ${subnet-id} ${instance-id} ${az-id} ${pkt-srcaddr} ${pkt-dstaddr} ${flow-direction} ${traffic-path}
+```
+
+**Required fields** (agent queries will fail without these):
+
+| Field | Purpose |
+|-------|---------|
+| `srcaddr` | Source IP address |
+| `dstaddr` | Destination IP address |
+| `bytes` | Data transfer volume |
+| `start` / `end` | Time range for traffic analysis |
+| `action` | Filter accepted vs rejected traffic |
+| `log-status` | Filter valid records |
+| `instance-id` | Map traffic to EC2 instances |
+| `az-id` | Cross-AZ traffic analysis |
+
+**Optional but recommended fields:**
+
+| Field | Purpose |
+|-------|---------|
+| `srcport` / `dstport` | Port-based traffic analysis (database, web, etc.) |
+| `protocol` | Protocol breakdown (TCP, UDP, ICMP) |
+| `flow-direction` | Ingress vs egress analysis |
+| `traffic-path` | Identify NAT Gateway, VPC peering, etc. |
+| `pkt-srcaddr` / `pkt-dstaddr` | Original IPs when traffic traverses NAT |
+| `vpc-id` / `subnet-id` | Network topology context |
+
+> **Note:** If you have existing VPC Flow Logs with the default format, you'll need to create new flow logs with the custom format. Existing logs cannot be retroactively updated. See [AWS documentation on custom log format](https://docs.aws.amazon.com/vpc/latest/userguide/flow-log-records.html#flow-logs-fields).
 
 ---
 

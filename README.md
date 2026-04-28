@@ -32,6 +32,7 @@ Cost Analyzer Agent solves both challenges — it unifies billing APIs, CUR reso
 - Amazon Bedrock model access enabled (default: Claude Sonnet 4.5, configurable in `agent/config.yaml`)
 - Cost and Usage Report data accessible via Athena — set up using [AWS Data Exports](https://docs.aws.amazon.com/cur/latest/userguide/dataexports-create-standard.html). Legacy CUR format is not tested.
 - IAM permissions configured — see [IAM Permissions](docs/iam-permissions.md) for required policies
+- (Optional) VPC Flow Logs configured with a **custom log format** that includes fields required for analysis (`instance-id`, `az-id`, `srcaddr`, `dstaddr`, `bytes`, `start`, `end`, `protocol`, `action`, `log-status`). The default log format does not include all required fields. See [Configuration Guide](docs/configuration.md#vpc-flow-logs-custom-log-format) for the recommended format.
 
 ## Quick Start
 
@@ -39,7 +40,7 @@ Cost Analyzer Agent solves both challenges — it unifies billing APIs, CUR reso
 
 ```bash
 git clone https://github.com/aws-samples/sample-cost-analyzer-agent.git
-cd cost-analyzer-agent
+cd sample-cost-analyzer-agent
 cp agent/config.yaml.example agent/config.yaml
 ```
 
@@ -137,31 +138,37 @@ Enable debug mode: `./cli/cli.sh -v -q "test"` or `agentcore logs` for CloudWatc
 
 ## Cost
 
+> **Note:** The costs below are estimates based on typical usage patterns. Actual costs vary based on query complexity, data volume, model selection, and usage frequency. If VPC Flow Log analysis is enabled, additional Athena scan costs apply — see estimate below.
+
 Running this agent incurs costs from multiple AWS services:
 
 | Service | Pricing | Notes |
 |---------|---------|-------|
-| Amazon Bedrock (Claude Sonnet 4.5) | ~$0.01–0.05 per query | With prompt caching enabled (90% input token savings on cache hits). First request per session costs more due to cache write. |
+| Amazon Bedrock (Claude Sonnet 4.5) | ~$0.02–0.04 per query | With prompt caching enabled (90% input token savings on cache hits). First request per session costs more due to cache write. Estimate based on ~5K cached input tokens, ~1K non-cached input tokens, and ~1.5K output tokens per query. |
 | Amazon Bedrock AgentCore Runtime | Per-second billing for CPU/memory | Consumption-based; you only pay while sessions are active. See [AgentCore pricing](https://aws.amazon.com/bedrock/agentcore/pricing/). |
-| Amazon Athena | $5 per TB scanned | CUR and VPC Flow Log queries. Use partitioned/columnar data to reduce scan costs. |
+| Amazon Athena (CUR) | $5 per TB scanned | CUR queries. Use partitioned Parquet data to reduce scan costs. |
+| Amazon Athena (VPC Flow Logs) | $5 per TB scanned | VPC Flow Log queries (optional). Flow log tables are typically much larger than CUR — partition by date and use Parquet format to control costs. |
 | AWS Cost Explorer API | $0.01 per request | Each billing tool call is an API request. |
 | AWS Knowledge MCP | No additional cost | Uses the AWS documentation MCP server. |
 
 Actual costs depend on query complexity, data volume, and usage frequency. Enable prompt caching (`cache_tools: true` and `cache_ttl` in config) to minimize Bedrock token costs.
 
-### Example: Daily usage scenario
+### Example: Single query cost breakdown
 
-A FinOps analyst runs 20 queries per day over a month (600 queries total) with prompt caching enabled:
+Query: *"What are my top 5 services by cost last month?"*
 
-| Component | Calculation | Monthly Cost |
-|-----------|-------------|--------------|
-| Bedrock inference | 600 queries × ~$0.02 avg per query | ~$12.00 |
-| AgentCore Runtime | 600 sessions × ~30s avg × $0.000056/s (0.25 vCPU) | ~$1.01 |
-| Cost Explorer API | ~5 API calls per query × 600 queries × $0.01 | ~$30.00 |
-| Athena (CUR) | ~10 queries/day × 30 days × ~10 MB scanned × $5/TB | ~$0.015 |
-| **Total** | | **~$43** |
+This query triggers `get_current_date_context` + `get_cost_and_usage` (2 tool calls, 1 Cost Explorer API request).
 
-Without prompt caching, the Bedrock inference cost would be roughly 5–10× higher (~$60–120), making caching a significant cost saver for regular usage. Athena costs can vary significantly depending on CUR table size and whether data is partitioned and stored in columnar format (Parquet).
+| Component | Calculation | Cost |
+|-----------|-------------|------|
+| Bedrock inference | ~5K cached input tokens × $0.30/1M + ~1K input tokens × $3/1M + ~1.5K output tokens × $15/1M | ~$0.03 |
+| AgentCore Runtime | ~15s execution × $0.000056/s (0.25 vCPU) | ~$0.001 |
+| Cost Explorer API | 1 API call × $0.01 | $0.01 |
+| **Total per query** | | **~$0.04** |
+
+A more complex query like *"Show me the top 10 most expensive EC2 instances last month"* would additionally trigger an Athena CUR query (~10 MB scanned = ~$0.00005) and 2–3 more tool call round-trips, bringing the total to ~$0.06–0.08.
+
+Without prompt caching, the Bedrock inference cost would be roughly 5–10× higher (~$0.15–0.40 per query), making caching a significant cost saver for regular usage. Athena costs can vary significantly depending on table size and whether data is partitioned and stored in columnar format (Parquet).
 
 ## Why Not AWS Billing MCP?
 
