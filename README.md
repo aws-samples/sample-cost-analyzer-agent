@@ -1,8 +1,15 @@
 # Cost Analyzer Agent
 
+AI-powered AWS cost optimization and cloud spend analysis using natural language — built with Amazon Bedrock AgentCore and Strands Agents SDK.
+
+[![License: MIT-0](https://img.shields.io/badge/License-MIT--0-yellow.svg)](https://opensource.org/licenses/MIT-0)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
+[![AWS](https://img.shields.io/badge/AWS-Bedrock%20AgentCore-orange.svg)](https://aws.amazon.com/bedrock/agentcore/)
+[![Strands Agents](https://img.shields.io/badge/Strands-Agents%20SDK-green.svg)](https://github.com/awslabs/strands-agents)
+
 > ⚠️ **Disclaimer:** Code is provided under MIT-0 license. Review, fine tune, and test before using it in production. Review all configurations, IAM permissions, and costs before deploying in any environment.
 
-Cost Analyzer Agent helps teams analyze, understand, and optimize AWS costs across multiple accounts using natural language. Built with [Amazon Bedrock AgentCore](https://docs.aws.amazon.com/bedrock/latest/userguide/agents.html) and [Strands Agents](https://github.com/awslabs/strands-agents), it combines 43 billing APIs, Cost and Usage Report (CUR) analysis, and VPC Flow Log network insights into a single conversational interface — accessible via CLI or web UI.
+Cost Analyzer Agent is an open-source AWS cost management tool that helps FinOps teams analyze, understand, and optimize cloud spending across multiple AWS accounts using natural language. It combines 43 billing APIs (Cost Explorer, Budgets, Savings Plans, Compute Optimizer, Pricing), Cost and Usage Report (CUR) resource-level analysis via Amazon Athena, and VPC Flow Log network traffic insights into a single conversational interface — accessible via CLI or Streamlit web UI.
 
 ## The Challenge
 
@@ -12,14 +19,25 @@ Beyond billing data, a critical blind spot exists: data transfer costs. Existing
 
 Cost Analyzer Agent solves both challenges — it unifies billing APIs, CUR resource-level analysis, and VPC Flow Log network insights behind a single natural language interface. Ask a question in plain English, and the agent determines which data sources to query, correlates the results, and delivers actionable recommendations.
 
+## Use Cases
+
+- **Cloud cost reporting** — Generate cost breakdowns by service, account, region, or tag without writing queries
+- **Resource-level cost attribution** — Identify the most expensive EC2 instances, S3 buckets, RDS databases, or Lambda functions using CUR data
+- **Savings Plans & Reserved Instance analysis** — Check coverage, utilization, and get purchase recommendations
+- **Rightsizing recommendations** — Find over-provisioned or idle EC2, EBS, RDS, Lambda, and ECS resources via Compute Optimizer
+- **Data transfer cost investigation** — Pinpoint which resources drive cross-AZ, inter-region, and internet egress costs using VPC Flow Logs
+- **Cost anomaly detection** — Identify unexpected spending spikes across services
+- **Multi-account FinOps** — Analyze costs across AWS Organizations with cross-account role assumption
+
 ## Features
 
-- 💰 **Cost Analysis** — Query Cost Explorer, CUR, Budgets, Pricing, and more with natural language
-- 🎯 **Optimization** — Uses billing data, usage patterns, and resource metrics to suggest optimized recommendations via Cost Optimization Hub, Compute Optimizer, and Savings Plans/RI analysis
-- 🔍 **Network Analysis** — VPC Flow Logs queries for data transfer insights (optional)
-- 🏢 **Multi-Account** — Cross-account access via STS role assumption with credential caching
-- 📚 **AWS Knowledge** — Search AWS documentation for best practices
-- ⚡ **Prompt Caching** — Up to 90% cost reduction and 85% faster responses
+- 💰 **AWS Cost Analysis** — Query Cost Explorer, CUR, Budgets, Pricing, and more with natural language
+- 🎯 **Cost Optimization Recommendations** — Rightsizing, idle resources, Savings Plans, Reserved Instances via Cost Optimization Hub and Compute Optimizer
+- 🔍 **Data Transfer & Network Analysis** — VPC Flow Logs queries to identify cross-AZ, inter-region, and internet egress cost drivers (optional)
+- 🏢 **Multi-Account Support** — Cross-account access via STS role assumption with credential caching for AWS Organizations
+- 📚 **AWS Knowledge Base** — Search AWS documentation for cost optimization best practices via MCP
+- ⚡ **Prompt Caching** — Up to 90% cost reduction and 85% faster responses with Bedrock prompt caching
+- 🤖 **Agentic AI** — Built with Strands Agents SDK on Amazon Bedrock AgentCore with Claude Sonnet 4.5
 
 ## Architecture
 
@@ -86,7 +104,13 @@ Show me cost optimization recommendations
 Compare costs between last month and this month
 Which EC2 instances cost the most?
 What are my Savings Plans utilization rates?
-Analyze VPC Flow Logs for top network talkers in March
+Show me Reserved Instance coverage and recommendations
+What are my data transfer costs by service?
+Identify idle and underutilized resources
+Analyze VPC Flow Logs for top network talkers
+What rightsizing recommendations do you have for EC2?
+Show me my S3 storage costs by bucket
+What's my cost forecast for next month?
 ```
 
 ## Project Structure
