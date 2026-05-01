@@ -35,6 +35,7 @@ Cost Analyzer Agent solves both challenges — it unifies billing APIs, CUR reso
 - 🎯 **Cost Optimization Recommendations** — Rightsizing, idle resources, Savings Plans, Reserved Instances via Cost Optimization Hub and Compute Optimizer
 - 🔍 **Data Transfer & Network Analysis** — VPC Flow Logs queries to identify cross-AZ, inter-region, and internet egress cost drivers (optional)
 - 🏢 **Multi-Account Support** — Cross-account access via STS role assumption with credential caching for AWS Organizations
+- 🔎 **Auto-Discovery** — Automatically discovers Athena tables via Glue Catalog (no table name config needed)
 - 📚 **AWS Knowledge Base** — Search AWS documentation for cost optimization best practices via MCP
 - ⚡ **Prompt Caching** — Up to 90% cost reduction and 85% faster responses with Bedrock prompt caching
 - 🤖 **Agentic AI** — Built with Strands Agents SDK on Amazon Bedrock AgentCore with Claude Sonnet 4.5
@@ -72,7 +73,7 @@ accounts:
     athena:
       cur:
         database: cur_db
-        table: cur_table
+        # table: cur_table  # Optional — agent auto-discovers if omitted
 ```
 
 ### 2. Deploy

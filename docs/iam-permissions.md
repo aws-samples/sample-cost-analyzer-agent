@@ -212,7 +212,7 @@ If Athena data (CUR or VPC Flow Logs) is in the same account as the agent (Scena
 {
   "Sid": "LocalGlueDataCatalog",
   "Effect": "Allow",
-  "Action": ["glue:GetDatabase", "glue:GetTable", "glue:GetPartitions"],
+  "Action": ["glue:GetDatabase", "glue:GetTable", "glue:GetTables", "glue:GetPartitions"],
   "Resource": "*"
 }
 ```
@@ -389,7 +389,7 @@ If CUR Athena data is in the payer account (Scenario B), also add:
 {
   "Sid": "GlueDataCatalog",
   "Effect": "Allow",
-  "Action": ["glue:GetDatabase", "glue:GetTable", "glue:GetPartitions"],
+  "Action": ["glue:GetDatabase", "glue:GetTable", "glue:GetTables", "glue:GetPartitions"],
   "Resource": "*"
 }
 ```
@@ -464,7 +464,7 @@ Remove the `Condition` block if you are not using external IDs.
     {
       "Sid": "GlueDataCatalog",
       "Effect": "Allow",
-      "Action": ["glue:GetDatabase", "glue:GetTable", "glue:GetPartitions"],
+      "Action": ["glue:GetDatabase", "glue:GetTable", "glue:GetTables", "glue:GetPartitions"],
       "Resource": "*"
     }
   ]

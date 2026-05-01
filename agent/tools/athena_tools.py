@@ -1,21 +1,95 @@
 """Athena query tools."""
 import json
-from typing import Optional
+import logging
+from typing import Optional, TYPE_CHECKING
+
 from strands import tool
+
 from .base_tool import BaseTool
-from services.athena_service import AthenaService
+from agent.services.athena_service import AthenaService
+from agent.services.table_classifier import TableType
+from agent.services.discovery_service import DiscoveryError
+
+if TYPE_CHECKING:
+    from agent.services.discovery_service import DiscoveryService
+
+logger = logging.getLogger("AthenaTools")
 
 
 class AthenaTools(BaseTool):
     """Provides Athena query execution tools."""
     
     def __init__(self, athena_service: Optional[AthenaService] = None, vpc_flowlog_config: dict = None,
-                 member_athena_services: dict = None, multi_account_executor=None):
+                 member_athena_services: dict = None, multi_account_executor=None,
+                 discovery_service: Optional['DiscoveryService'] = None):
         self.athena_service = athena_service
         self.vpc_flowlog_config = vpc_flowlog_config or {}
         self.member_athena_services = member_athena_services or {}
         self.multi_account_executor = multi_account_executor
+        self.discovery_service = discovery_service
     
+    def _resolve_cur_table(self) -> Optional[str]:
+        """Resolve the CUR table name via discovery if not explicitly configured.
+
+        Returns:
+            None on success (table is set on self.athena_service),
+            or an error message string if resolution fails.
+        """
+        if self.athena_service is None:
+            return None
+
+        # If table is already set (explicitly configured), nothing to do
+        if self.athena_service.table is not None:
+            return None
+
+        # If no discovery service, we can't resolve
+        if self.discovery_service is None:
+            return (
+                f"No table configured for CUR in database '{self.athena_service.database}' "
+                f"and no discovery service available. Specify the table name in config.yaml."
+            )
+
+        try:
+            resolved = self.discovery_service.resolve_table(
+                self.athena_service.database, TableType.CUR, None
+            )
+            self.athena_service.table = resolved
+            logger.info(f"Auto-discovered CUR table: {self.athena_service.database}.{resolved}")
+            return None
+        except DiscoveryError as e:
+            return str(e)
+
+    def _resolve_vpc_table(self, service: AthenaService) -> Optional[str]:
+        """Resolve a VPC Flow Log table name via discovery if not explicitly configured.
+
+        Args:
+            service: The AthenaService instance for a specific VPC Flow Log account.
+
+        Returns:
+            None on success (table is set on the service),
+            or an error message string if resolution fails.
+        """
+        # If table is already set (explicitly configured), nothing to do
+        if service.table is not None:
+            return None
+
+        # If no discovery service, we can't resolve
+        if self.discovery_service is None:
+            return (
+                f"No table configured for VPC Flow Logs in database '{service.database}' "
+                f"and no discovery service available. Specify the table name in config.yaml."
+            )
+
+        try:
+            resolved = self.discovery_service.resolve_table(
+                service.database, TableType.VPC_FLOW_LOG, None
+            )
+            service.table = resolved
+            logger.info(f"Auto-discovered VPC Flow Log table: {service.database}.{resolved}")
+            return None
+        except DiscoveryError as e:
+            return str(e)
+
     def get_tools(self):
         tools = []
         
@@ -48,6 +122,11 @@ class AthenaTools(BaseTool):
         Returns:
             Key columns, query patterns, and best practices for CUR analysis
         """
+        # Lazy resolution: ensure CUR table is resolved before use
+        error = self._resolve_cur_table()
+        if error:
+            return error
+
         info = {
             "table": f"{self.athena_service.database}.{self.athena_service.table}",
             
@@ -138,6 +217,11 @@ LIMIT 20
         if self.athena_service is None:
             return "No CUR Athena configuration found. Configure athena.cur on an account in config.yaml."
         
+        # Lazy resolution: ensure CUR table is resolved before use
+        error = self._resolve_cur_table()
+        if error:
+            return error
+
         result = self.athena_service.execute_query(sql_query)
         
         if result['status'] == 'success':
@@ -180,6 +264,12 @@ Query Stats: {stats['data_scanned_mb']:.2f} MB scanned in {stats['execution_time
         if not self.member_athena_services:
             return "No VPC Flow Logs Athena services configured."
         first_service = next(iter(self.member_athena_services.values()))
+
+        # Lazy resolution: ensure VPC table is resolved before use
+        error = self._resolve_vpc_table(first_service)
+        if error:
+            return error
+
         database = first_service.database
         table = first_service.table
         
@@ -352,6 +442,11 @@ Simple approach:
                 return "No VPC Flow Logs Athena services configured."
             service = next(iter(self.member_athena_services.values()))
         
+        # Lazy resolution: ensure VPC table is resolved before use
+        error = self._resolve_vpc_table(service)
+        if error:
+            return error
+
         # Execute the query directly - let Athena handle validation
         result = service.execute_query(sql_query)
         
@@ -404,6 +499,12 @@ Tip: Call get_vpc_flowlog_schema_info() to see available columns and query examp
         if not account_ids:
             return "No member accounts configured for VPC Flow Logs queries."
         
+        # Lazy resolution: resolve VPC tables for all member services before querying
+        for acct_id, service in self.member_athena_services.items():
+            error = self._resolve_vpc_table(service)
+            if error:
+                return f"Failed to resolve VPC Flow Log table for account {acct_id}: {error}"
+
         def query_fn(account_id, session):
             service = self.member_athena_services[account_id]
             return service.execute_query(sql_query)

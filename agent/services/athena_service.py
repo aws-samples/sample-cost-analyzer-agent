@@ -20,7 +20,7 @@ _BLOCKED_SQL_PATTERNS = [
 class AthenaService:
     """Handles Athena query execution against CUR or VPC flowlog data."""
     
-    def __init__(self, region: str, database: str, table: str, session: boto3.Session = None):
+    def __init__(self, region: str, database: str, table: Optional[str] = None, session: boto3.Session = None):
         effective_session = session or boto3.Session(region_name=region)
         self.athena_client = effective_session.client('athena', region_name=region)
         self.s3_client = effective_session.client('s3', region_name=region)

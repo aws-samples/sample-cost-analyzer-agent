@@ -1,5 +1,5 @@
 """Account registry for cross-account AWS access configuration."""
-from dataclasses import dataclass, field, asdict
+from dataclasses import dataclass, field
 from typing import Dict, List, Optional
 
 
@@ -10,7 +10,7 @@ VALID_ACCOUNT_TYPES = {"payer", "member"}
 class AthenaConfig:
     """Holds database/table for a single Athena dataset."""
     database: str
-    table: str
+    table: Optional[str] = None
 
 
 @dataclass
@@ -116,17 +116,16 @@ class AccountRegistry:
         if sub_dict is None:
             return None
 
-        required_fields = ("database", "table")
-        for field_name in required_fields:
-            if field_name not in sub_dict or sub_dict[field_name] is None:
-                raise ValueError(
-                    f"Account entry {entry_idx} (account_id '{account_id}'): "
-                    f"athena.{sub_name} missing required field '{field_name}'"
-                )
+        # Only database is required; table is optional (None triggers auto-discovery)
+        if "database" not in sub_dict or sub_dict["database"] is None:
+            raise ValueError(
+                f"Account entry {entry_idx} (account_id '{account_id}'): "
+                f"athena.{sub_name} missing required field 'database'"
+            )
 
         return AthenaConfig(
             database=sub_dict["database"],
-            table=sub_dict["table"],
+            table=sub_dict.get("table"),
         )
 
     def get_account(self, account_id: str) -> AccountEntry:
@@ -155,6 +154,14 @@ class AccountRegistry:
         """Return all accounts with athena_vpc_flowlogs configured."""
         return [e for e in self.entries.values() if e.athena_vpc_flowlogs is not None]
 
+    @staticmethod
+    def _athena_config_to_dict(config: AthenaConfig) -> dict:
+        """Serialize an AthenaConfig, omitting table when it is None."""
+        d: dict = {"database": config.database}
+        if config.table is not None:
+            d["table"] = config.table
+        return d
+
     def to_dict_list(self) -> List[dict]:
         """Serialize entries back to a list of dicts (YAML round-trip)."""
         result = []
@@ -175,9 +182,9 @@ class AccountRegistry:
             # Serialize athena sub-objects into nested dict
             athena = {}
             if entry.athena_cur is not None:
-                athena["cur"] = asdict(entry.athena_cur)
+                athena["cur"] = self._athena_config_to_dict(entry.athena_cur)
             if entry.athena_vpc_flowlogs is not None:
-                athena["vpc_flowlogs"] = asdict(entry.athena_vpc_flowlogs)
+                athena["vpc_flowlogs"] = self._athena_config_to_dict(entry.athena_vpc_flowlogs)
             if athena:
                 d["athena"] = athena
 

@@ -59,7 +59,8 @@ agent:
 # Athena settings for CUR (Cost and Usage Reports) and VPC Flow Logs are
 # configured per-account inside the accounts section. Each account can
 # optionally include an `athena` block with `cur` and/or `vpc_flowlogs`
-# sub-objects. Each sub-object requires: database, table.
+# sub-objects. Each sub-object requires: database. The table field is optional —
+# when omitted, the agent auto-discovers tables by inspecting column signatures.
 #
 # - Exactly one payer account is required. The payer must have a role_arn.
 # - Member accounts may omit role_arn when the agent runs in the same account
@@ -91,10 +92,10 @@ agent:
 #     athena:
 #       cur:
 #         database: cur_db
-#         table: cur_table
+#         # table: cur_table  # Optional — omit to auto-discover
 #       vpc_flowlogs:
 #         database: vpc_db
-#         table: flow_logs
+#         # table: flow_logs  # Optional — omit to auto-discover
 
 # -----------------------------------------------------------------------------
 # Scenario B: Audit Account (Distributed Data)
@@ -111,7 +112,7 @@ agent:
 #     athena:
 #       cur:
 #         database: cur_db
-#         table: cur_table
+#         # table: cur_table  # Optional — omit to auto-discover
 #
 #   # Member account with VPC Flow Log data
 #   - account_id: "222222222222"
@@ -120,7 +121,7 @@ agent:
 #     athena:
 #       vpc_flowlogs:
 #         database: vpc_db
-#         table: flow_logs
+#         # table: flow_logs  # Optional — omit to auto-discover
 #
 #   # Another member account with VPC Flow Log data
 #   - account_id: "333333333333"
@@ -129,4 +130,4 @@ agent:
 #     athena:
 #       vpc_flowlogs:
 #         database: vpc_db
-#         table: flow_logs
+#         # table: flow_logs  # Optional — omit to auto-discover

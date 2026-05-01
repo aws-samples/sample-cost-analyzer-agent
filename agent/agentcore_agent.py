@@ -18,6 +18,7 @@ from strands.tools.executors.concurrent import ConcurrentToolExecutor
 from strands.types.content import SystemContentBlock
 from agent.services.config_service import ConfigService
 from agent.services.athena_service import AthenaService
+from agent.services.discovery_service import DiscoveryService
 from agent.services.mcp_service import MCPService
 from agent.tools.date_tools import DateTools
 from agent.tools.athena_tools import AthenaTools
@@ -117,11 +118,21 @@ def _initialize_agent():
     logger.info(f"Date tools added: {len(date_tools.get_tools())} tools")
     
     # Athena tools — conditionally include CUR and VPC tools based on config
+    # Create DiscoveryService for auto-discovery when table is not configured
+    cur_discovery_service = None
+    if cur_account:
+        cur_session = session_manager.get_session(cur_account.account_id)
+        cur_discovery_service = DiscoveryService(
+            session=cur_session,
+            region=cur_account.region or config.aws_region,
+        )
+
     athena_tools = AthenaTools(
         athena_service=cur_athena_service,  # may be None
         vpc_flowlog_config={'enabled': bool(vpc_athena_services)},
         member_athena_services=vpc_athena_services,
         multi_account_executor=multi_account_executor if vpc_athena_services else None,
+        discovery_service=cur_discovery_service,
     )
     tools.extend(athena_tools.get_tools())
     logger.info(f"Athena tools added: {len(athena_tools.get_tools())} tools")
