@@ -11,17 +11,15 @@ Analyze, optimize, and report on AWS cloud costs using natural language - connec
 
 ## What Is This?
 
-AWS Cost Analyzer Agent is an open-source AI agent for AWS cloud cost management. It helps FinOps teams, cloud engineers, and finance stakeholders analyze, understand, and optimize AWS spending across multiple accounts using natural language — no SQL or console navigation required.
+AWS Cost Analyzer Agent is an open-source AI agent for AWS cloud cost management. It helps FinOps teams, cloud engineers, and finance stakeholders analyze, understand, and optimize AWS spending across multiple accounts using natural language — no console navigation or SQL query knowledge required.
 
-The agent unifies **43+ AWS billing APIs** (Cost Explorer, Budgets, Savings Plans, Compute Optimizer, Pricing), **CUR 2.0 resource-level analysis** via Amazon Athena, and **VPC Flow Log network traffic insights** into a single conversational interface accessible via CLI or Streamlit web UI.
-
-**Keywords:** AWS cost optimization, FinOps agent, cloud cost management, AWS billing analysis, Cost Explorer automation, CUR analysis, Bedrock AgentCore, Strands Agents, AI cost advisor, multi-account AWS cost reporting
+The agent unifies **43 AWS billing APIs** (Cost Explorer, Budgets, Savings Plans, Compute Optimizer, Pricing etc), **CUR 2.0 resource-level analysis** via Amazon Athena, and **VPC Flow Log network traffic insights** into a single conversational interface accessible via CLI or Streamlit web UI.
 
 ## The Problem It Solves
 
 Managing AWS costs at scale is complex. FinOps teams juggle multiple disconnected tools — Cost Explorer for spending trends, CUR reports for resource-level details, Compute Optimizer for rightsizing, Savings Plans dashboards for commitment coverage. Each has its own interface, query language, and learning curve. Getting a complete picture requires manual correlation across these tools, Athena SQL expertise for CUR analysis, and significant time investment.
 
-Beyond billing data, a critical blind spot exists: **data transfer costs**. Existing cost tools can tell you data transfer is expensive, but can't pinpoint *which network flows between which resources* are driving those costs. VPC Flow Logs hold this answer, but no native AWS tool correlates flow log data with billing data automatically.
+Beyond billing data, a critical blind spot exists: **data transfer costs**. Existing cost tools can tell you data transfer is expensive, but can't pinpoint *which network flows between which resources or process* are driving those costs. VPC Flow Logs hold this answer, but no native AWS tool correlates flow log data with billing data automatically.
 
 AWS Cost Analyzer Agent solves both challenges — it unifies billing APIs, CUR resource-level analysis, and VPC Flow Log network insights behind a single natural language interface. Ask a question in plain English, and the agent determines which data sources to query, correlates the results, and delivers actionable recommendations.
 
@@ -42,15 +40,16 @@ AWS Cost Analyzer Agent solves both challenges — it unifies billing APIs, CUR 
 
 | Feature | Description |
 |---------|-------------|
-| 💰 **43+ AWS Billing APIs** | Cost Explorer, Budgets, Savings Plans, Compute Optimizer, Pricing, Billing Conductor — all accessible via natural language |
+| 💰 **43 AWS Billing APIs** | Cost Explorer, Budgets, Savings Plans, Compute Optimizer, Pricing, Billing Conductor — all accessible via natural language |
 | 🎯 **Cost Optimization** | Rightsizing, idle resources, Savings Plans, Reserved Instances via Cost Optimization Hub and Compute Optimizer |
-| 🔍 **VPC Flow Log Analysis** | Identify cross-AZ, inter-region, and internet egress cost drivers at the resource level (optional) |
-| 🏢 **Multi-Account Support** | Cross-account access via STS role assumption with credential caching for AWS Organizations |
+| 🔍 **VPC Flow Log Analysis** | Identify cross-AZ, inter-region, and internet egress cost drivers at the resource,process level (optional) |
+| 🏢 **Multi-Account Support** | Cross-account access via STS assume role with credential caching for AWS Organizations |
 | 🔎 **Auto-Discovery** | Automatically discovers Athena tables via AWS Glue Catalog — no table name configuration needed |
 | 📚 **AWS Knowledge Base** | Search AWS documentation for cost optimization best practices via MCP |
 | ⚡ **Prompt Caching** | Up to 90% cost reduction and 85% faster responses with Amazon Bedrock prompt caching |
 | 🛡️ **Security Built-In** | SQL injection prevention, prompt injection protection, config integrity validation, credential masking |
 | 🤖 **Agentic AI** | Built with Strands Agents SDK on Amazon Bedrock AgentCore with Claude Sonnet 4.5 |
+| 📋 **Prompt Library** | Pre-built query templates for common FinOps scenarios — cost overviews, service deep dives, optimization, data transfer, VPC analysis, and more |
 
 ## How It Works
 
@@ -64,7 +63,7 @@ Strands Agent (Claude Sonnet 4.5 on Bedrock AgentCore)
   └── Returns: Top instances with costs, usage types, and regions
 ```
 
-The agent autonomously selects from 50+ tools based on the question:
+The agent autonomously selects from 43 tools based on the question:
 - **Service-level questions** → Cost Explorer API (fast, aggregated)
 - **Resource-level questions** → CUR Athena queries (detailed, per-resource)
 - **Network questions** → VPC Flow Log Athena queries (traffic patterns)
