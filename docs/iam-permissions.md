@@ -32,16 +32,14 @@ This document covers the four IAM roles required for the Cost Analyzer Agent. Ea
 
 ## 1. Client Policy (Deploy + Invoke)
 
-Attach to the IAM user or role used for deploying the agent and invoking it via CLI or web UI.
-
-### Deployment permissions
+Attach to the IAM user or role used for deploying and invoking the agent (CLI, web UI, CI/CD).
 
 ```json
 {
   "Version": "2012-10-17",
   "Statement": [
     {
-      "Sid": "IAMRoleManagement",
+      "Sid": "DeployIAMRoleManagement",
       "Effect": "Allow",
       "Action": [
         "iam:CreateRole",
@@ -54,7 +52,7 @@ Attach to the IAM user or role used for deploying the agent and invoking it via 
       "Resource": "arn:aws:iam::*:role/*BedrockAgentCore*"
     },
     {
-      "Sid": "CodeBuildAccess",
+      "Sid": "DeployCodeBuild",
       "Effect": "Allow",
       "Action": [
         "codebuild:StartBuild",
@@ -64,7 +62,7 @@ Attach to the IAM user or role used for deploying the agent and invoking it via 
       "Resource": "arn:aws:codebuild:*:*:project/bedrock-agentcore-*"
     },
     {
-      "Sid": "ECRAccess",
+      "Sid": "DeployECR",
       "Effect": "Allow",
       "Action": [
         "ecr:CreateRepository",
@@ -75,7 +73,7 @@ Attach to the IAM user or role used for deploying the agent and invoking it via 
       "Resource": "*"
     },
     {
-      "Sid": "S3Access",
+      "Sid": "DeployS3",
       "Effect": "Allow",
       "Action": [
         "s3:CreateBucket",
@@ -83,23 +81,9 @@ Attach to the IAM user or role used for deploying the agent and invoking it via 
         "s3:GetObject"
       ],
       "Resource": "arn:aws:s3:::bedrock-agentcore-*"
-    }
-  ]
-}
-```
-
-Also attach managed policies: `BedrockAgentCoreFullAccess` and `AmazonBedrockFullAccess`.
-
-### Invocation permissions
-
-For IAM users/roles that use the CLI or web interface to invoke the deployed agent:
-
-```json
-{
-  "Version": "2012-10-17",
-  "Statement": [
+    },
     {
-      "Sid": "InvokeAgentCore",
+      "Sid": "InvokeAgent",
       "Effect": "Allow",
       "Action": [
         "bedrock-agentcore:InvokeAgentRuntime",
@@ -108,7 +92,7 @@ For IAM users/roles that use the CLI or web interface to invoke the deployed age
       "Resource": "arn:aws:bedrock-agentcore:*:*:runtime/*"
     },
     {
-      "Sid": "AgentCoreManagement",
+      "Sid": "AgentManagement",
       "Effect": "Allow",
       "Action": [
         "bedrock-agentcore:GetAgentRuntime",
@@ -126,6 +110,12 @@ For IAM users/roles that use the CLI or web interface to invoke the deployed age
   ]
 }
 ```
+
+Also attach the managed policy: `BedrockAgentCoreFullAccess` (required for the `agentcore` CLI to create, update, and manage agent runtimes).
+
+> **Note:** `AmazonBedrockFullAccess` is **not needed**. Bedrock model invocation happens at runtime via the AgentCore execution role, not the deployer's credentials.
+
+> **Tip:** For teams where deployers and end users are different people, you can split this into two policies: give analysts only the `InvokeAgent` + `AgentManagement` + `GetAccountInfo` statements, and give platform engineers the full policy above.
 
 ---
 
@@ -158,14 +148,16 @@ This role needs:
         "bedrock:InvokeModel",
         "bedrock:InvokeModelWithResponseStream"
       ],
-      "Resource": "arn:aws:bedrock:*::foundation-model/anthropic.claude-*"
+      "Resource": [
+        "arn:aws:bedrock:*::foundation-model/anthropic.claude-*",
+        "arn:aws:bedrock:*:*:inference-profile/*anthropic.claude-*"
+      ]
     },
     {
       "Sid": "MarketplaceModelAccess",
       "Effect": "Allow",
       "Action": [
         "aws-marketplace:Subscribe",
-        "aws-marketplace:Unsubscribe",
         "aws-marketplace:ViewSubscriptions"
       ],
       "Resource": "*"
@@ -175,7 +167,8 @@ This role needs:
 ```
 
 > **Note on Marketplace permissions:** Anthropic Claude models on Bedrock are served through AWS Marketplace. The `aws-marketplace:Subscribe` permission is required the first time a model is invoked in an account — Bedrock auto-subscribes on your behalf. Once the model is enabled in the account, subsequent invocations do not require marketplace permissions. If you prefer, a designated admin can enable the model once (via console or API), after which you can remove the marketplace permissions from the execution role.
-```
+
+> **Note on Bedrock resource ARNs:** The policy includes both `foundation-model` and `inference-profile` resource patterns. If your config uses a `global.*` model ID (e.g., `global.anthropic.claude-sonnet-4-5-20250929-v1:0`), that routes through a cross-region inference profile. If you use a direct model ID (e.g., `anthropic.claude-sonnet-4-5-20250929-v1:0`), that uses the foundation model ARN. Both are included for flexibility.
 
 If Athena data (CUR or VPC Flow Logs) is in the same account as the agent (Scenario A — centralized logging), also add:
 
@@ -207,6 +200,15 @@ If Athena data (CUR or VPC Flow Logs) is in the same account as the agent (Scena
   "Resource": [
     "arn:aws:s3:::YOUR_CUR_DATA_BUCKET",
     "arn:aws:s3:::YOUR_CUR_DATA_BUCKET/*"
+  ]
+},
+{
+  "Sid": "LocalS3VPCFlowLogData",
+  "Effect": "Allow",
+  "Action": ["s3:GetObject", "s3:ListBucket"],
+  "Resource": [
+    "arn:aws:s3:::YOUR_VPC_FLOWLOG_DATA_BUCKET",
+    "arn:aws:s3:::YOUR_VPC_FLOWLOG_DATA_BUCKET/*"
   ]
 },
 {
@@ -273,8 +275,8 @@ Remove the `Condition` block if you are not using external IDs.
         "ce:GetReservationPurchaseRecommendation",
         "ce:GetReservationCoverage",
         "ce:GetReservationUtilization",
-        "ce:GetSavingsPlansPurchaseRecommendation",
-        "ce:GetSavingsPlansUtilization",
+        "ce:GetSavingsPlansPurchaseRecommendationDetails",
+        "ce:GetSavingsPlansUtilizationDetails",
         "ce:GetSavingsPlansCoverage",
         "ce:GetSavingsPlansDetails"
       ],
@@ -306,11 +308,17 @@ Remove the `Condition` block if you are not using external IDs.
       "Resource": "*"
     },
     {
-      "Sid": "BudgetsAndFreeTier",
+      "Sid": "Budgets",
       "Effect": "Allow",
       "Action": [
-        "budgets:DescribeBudgets",
-        "budgets:ViewBudget",
+        "budgets:ViewBudget"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "FreeTier",
+      "Effect": "Allow",
+      "Action": [
         "freetier:GetFreeTierUsage"
       ],
       "Resource": "*"
