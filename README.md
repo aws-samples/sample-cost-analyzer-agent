@@ -105,13 +105,14 @@ accounts:
         # table: cur_table  # Optional — agent auto-discovers if omitted
 ```
 
-### 2. Deploy
+### 2. Export AWS Credentials/Session token
+### 3. Deploy
 
 ```bash
 ./deploy.sh
 ```
 
-### 3. Use
+### 4. Use
 
 ```bash
 # Interactive CLI
@@ -120,11 +121,11 @@ accounts:
 # Single query
 ./cli/cli.sh -q "What are my top 5 services by cost last month?"
 
-# Web UI (optional)
+# Localhost Web UI (optional)
 cd frontend && streamlit run app.py
 ```
 
-> ⚠️ **Security Note:** The Streamlit web UI has no built-in authentication. Run it locally only and do not expose it to the internet. For network access, restrict through security groups. For production deployments with authentication, see [sample-amazon-bedrock-agentcore-fullstack-webapp](https://github.com/aws-samples/sample-amazon-bedrock-agentcore-fullstack-webapp).
+> ⚠️ **Security Note:** The Local host Streamlit web UI has no built-in authentication. Run it locally and do not expose it to the internet. For network access, restrict through security groups. For production deployments with authentication, see [sample-amazon-bedrock-agentcore-fullstack-webapp](https://github.com/aws-samples/sample-amazon-bedrock-agentcore-fullstack-webapp).
 
 ## Example Queries
 
@@ -186,8 +187,7 @@ Which instances generate the most cross-AZ traffic?
 | Legacy CUR | ⚠️ Not tested | May work but column compatibility is not verified |
 | VPC Flow Logs to S3 (Athena) | ✅ Supported | Parquet format recommended |
 | VPC Flow Logs to CloudWatch Logs | ❌ Not supported | Only S3-based Flow Logs queryable via Athena |
-| Multi-account (Organizations) | ✅ Supported | Payer + member accounts via STS role assumption |
-| Single account | ✅ Supported | No cross-account roles needed |
+| Multi-account (Organizations) | ✅ Supported | Payer + member accounts via STS role assume role |
 
 ## Troubleshooting
 
@@ -198,11 +198,11 @@ Which instances generate the most cross-AZ traffic?
 | Athena query failures | Verify `athena.cur`/`athena.vpc_flowlogs` config, check Athena workgroup output location |
 | Cost Explorer errors | Ensure IAM role has `ce:*` permissions |
 
-Enable debug mode: `./cli/cli.sh -v -q "test"` or `agentcore logs` for CloudWatch logs.
+Run in debug mode: `./cli/cli.sh -v -q "test"` or `agentcore logs` for CloudWatch logs.
 
 ## Cost
 
-> **Note:** The costs below are estimates based on typical usage patterns. Actual costs vary based on query complexity, data volume, model selection, and usage frequency. If VPC Flow Log analysis is enabled, additional Athena scan costs apply — see estimate below.
+> **Note:** The costs below are estimates based on test usage patterns. Actual costs vary based on query complexity, data volume, model selection, and usage frequency. If VPC Flow Log analysis is enabled, additional Athena scan costs apply — see estimate below.
 
 Running this agent incurs costs from multiple AWS services:
 
@@ -210,12 +210,12 @@ Running this agent incurs costs from multiple AWS services:
 |---------|---------|-------|
 | Amazon Bedrock (Claude Sonnet 4.5) | ~$0.02–0.04 per query | With prompt caching enabled (90% input token savings on cache hits). First request per session costs more due to cache write. Estimate based on ~5K cached input tokens, ~1K non-cached input tokens, and ~1.5K output tokens per query. |
 | Amazon Bedrock AgentCore Runtime | Per-second billing for CPU/memory | Consumption-based; you only pay while sessions are active. See [AgentCore pricing](https://aws.amazon.com/bedrock/agentcore/pricing/). |
-| Amazon Athena (CUR) | $5 per TB scanned | CUR queries. Use partitioned Parquet data to reduce scan costs. |
-| Amazon Athena (VPC Flow Logs) | $5 per TB scanned | VPC Flow Log queries (optional). Flow log tables are typically much larger than CUR — partition by date and use Parquet format to control costs. |
+| CUR Query (Amazon Athena) | $5 per TB scanned | CUR queries. Use partitioned Parquet data to reduce scan costs. |
+| VPC Flow Logs(Amazon Athena) | $5 per TB scanned | VPC Flow Log queries (optional). Flow log tables are typically much larger than CUR — partition by date and use Parquet format to control costs. |
 | AWS Cost Explorer API | $0.01 per request | Each billing tool call is an API request. |
 | AWS Knowledge MCP | No additional cost | Uses the AWS documentation MCP server. |
 
-Actual costs depend on query complexity, data volume, and usage frequency. Enable prompt caching (`cache_tools: true` and `cache_ttl` in config) to minimize Bedrock token costs.
+Actual cost depends on query complexity, data volume, usage frequency and prompt cache hit/miss.
 
 ### Example: Single query cost breakdown
 
@@ -231,21 +231,6 @@ This query triggers `get_current_date_context` + `get_cost_and_usage` (2 tool ca
 | **Total per query** | | **~$0.04** |
 
 A more complex query like *"Show me the top 10 most expensive EC2 instances last month"* would additionally trigger an Athena CUR query (~10 MB scanned = ~$0.00005) and 2–3 more tool call round-trips, bringing the total to ~$0.06–0.08.
-
-Without prompt caching, the Bedrock inference cost would be roughly 5–10× higher (~$0.15–0.40 per query), making caching a significant cost saver for regular usage. Athena costs can vary significantly depending on table size and whether data is partitioned and stored in columnar format (Parquet).
-
-## Why Not AWS Billing MCP?
-
-This agent uses native boto3 billing tools instead of the AWS Billing MCP server. The reason: cross-account cost analysis requires routing billing API calls through the payer account via STS role assumption. The agent's `SessionManager` handles this by assuming roles into payer and member accounts, caching credentials, and routing each billing tool call through the correct account context. The AWS Billing MCP server does not support this cross-account routing between payer and delegated administrator accounts, which is essential for multi-account FinOps workflows.
-
-## Related Projects
-
-| Project | Description |
-|---------|-------------|
-| [Strands Agents SDK](https://github.com/strands-agents/sdk-python) | The agent framework powering this project |
-| [Amazon Bedrock AgentCore](https://aws.amazon.com/bedrock/agentcore/) | Managed runtime for deploying AI agents |
-| [AWS MCP Servers](https://awslabs.github.io/mcp/) | Model Context Protocol servers for AWS services |
-| [sample-amazon-bedrock-agentcore-fullstack-webapp](https://github.com/aws-samples/sample-amazon-bedrock-agentcore-fullstack-webapp) | Full-stack web app template with authentication for AgentCore agents |
 
 ## Security
 
