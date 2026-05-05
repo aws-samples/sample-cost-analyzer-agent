@@ -71,7 +71,7 @@ The agent autonomously selects from 43 tools based on the question:
 
 ## Architecture
 
-![Cost Analyzer Agent Architecture](docs/cost-analyzer-agent-architecture.png)
+![Cost Analyzer Agent Architecture](docs/cost-analyzer-agent-architecture.jpg)
 
 ## Prerequisites
 
