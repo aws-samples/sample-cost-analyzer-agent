@@ -1,6 +1,6 @@
 # AWS Cost Analyzer Agent — AI-Powered FinOps with Amazon Bedrock AgentCore
 
-Analyze, optimize, and report on AWS cloud costs using natural language. Built with [Amazon Bedrock AgentCore](https://aws.amazon.com/bedrock/agentcore/) and [Strands Agents SDK](https://github.com/strands-agents/sdk-python).
+Analyze, optimize, and report on AWS cloud costs using natural language - connecting billing data to network and usage signals. Built with [Amazon Bedrock AgentCore](https://aws.amazon.com/bedrock/agentcore/) and [Strands Agents SDK](https://github.com/strands-agents/sdk-python).
 
 [![License: MIT-0](https://img.shields.io/badge/License-MIT--0-yellow.svg)](https://opensource.org/licenses/MIT-0)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
