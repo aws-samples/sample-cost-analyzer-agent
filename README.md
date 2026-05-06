@@ -105,7 +105,18 @@ accounts:
         # table: cur_table  # Optional — agent auto-discovers if omitted
 ```
 
-### 2. Export AWS Credentials/Session token
+### 2. Export AWS credentials
+
+```bash
+# Set temporary AWS credentials (from SSO, assume-role, or Identity Center)
+export AWS_ACCESS_KEY_ID=ASIA...
+export AWS_SECRET_ACCESS_KEY=...
+export AWS_SESSION_TOKEN=...
+
+# Verify access
+aws sts get-caller-identity
+```
+
 ### 3. Deploy
 
 ```bash
