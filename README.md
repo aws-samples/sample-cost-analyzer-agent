@@ -96,13 +96,13 @@ Edit `agent/config.yaml` with your accounts and Athena settings. See [Configurat
 
 ```yaml
 accounts:
-  - account_id: "111111111111"
-    role_arn: "arn:aws:iam::111111111111:role/CostAnalyzerAgentPayerRole"
+  - account_id: "<PAYER_ACCOUNT_ID>"
+    role_arn: "arn:aws:iam::<PAYER_ACCOUNT_ID>:role/CostAnalyzerAgentPayerRole"
     account_type: payer
     athena:
       cur:
-        database: cur_db
-        # table: cur_table  # Optional — agent auto-discovers if omitted
+        database: <YOUR_CUR_DATABASE>
+        # table: <YOUR_CUR_TABLE>  # Optional — agent auto-discovers if omitted
 ```
 
 ### 2. Export AWS credentials

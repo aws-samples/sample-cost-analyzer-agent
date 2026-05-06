@@ -23,17 +23,17 @@ aws:
 # 2. Account Configuration (REQUIRED)
 # =============================================================================
 accounts:
-  - account_id: "111111111111"
-    role_arn: "arn:aws:iam::111111111111:role/CostAnalyzerAgentPayerRole"
+  - account_id: "<PAYER_ACCOUNT_ID>"
+    role_arn: "arn:aws:iam::<PAYER_ACCOUNT_ID>:role/CostAnalyzerAgentPayerRole"
     account_type: payer
 
-  - account_id: "999999999999"
+  - account_id: "<MEMBER_ACCOUNT_ID>"
     account_type: member
     athena:
       cur:
-        database: cur_db
+        database: <YOUR_CUR_DATABASE>
       vpc_flowlogs:
-        database: vpc_db
+        database: <YOUR_VPC_DATABASE>
 
 # =============================================================================
 # 3. AgentCore Deployment
