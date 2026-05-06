@@ -1,61 +1,197 @@
 # Configuration Guide
 
-## Prerequisites
+The agent is configured via `agent/config.yaml`. Copy from the example template and edit:
 
-Before configuring the agent, ensure the following infrastructure is set up in the relevant AWS accounts.
+```bash
+cp agent/config.yaml.example agent/config.yaml
+```
 
-### Athena Setup for CUR (Payer or Centralized Account)
+## Full Configuration File
 
-The account hosting CUR data needs:
+Below is the complete configuration structure. Each section is explained in detail after.
 
-1. CUR exported to S3 in Parquet format (recommended for cost efficiency)
-   - Set up via AWS Billing Console → Cost & Usage Reports → Create Report
-   - Enable "Amazon Athena" integration when creating the report
-   - See [CUR setup guide](https://docs.aws.amazon.com/cur/latest/userguide/what-is-cur.html)
+```yaml
+# =============================================================================
+# 1. AWS Region
+# =============================================================================
+aws:
+  region: us-east-1
 
-2. Athena workgroup with an S3 output location for query results
-   ```
-   Workgroup:  primary (or custom)
-   Output:     s3://YOUR-ACCOUNT-athena-results/cur-queries/
-   ```
+# =============================================================================
+# 2. Account Configuration (REQUIRED)
+# =============================================================================
+accounts:
+  - account_id: "111111111111"
+    role_arn: "arn:aws:iam::111111111111:role/CostAnalyzerAgentPayerRole"
+    account_type: payer
 
-3. Glue database and table created by the CUR integration (auto-created if you enable Athena integration during CUR setup)
+  - account_id: "999999999999"
+    account_type: member
+    athena:
+      cur:
+        database: cur_db
+      vpc_flowlogs:
+        database: vpc_db
 
-### Athena Setup for VPC Flow Logs (Member Accounts)
+# =============================================================================
+# 3. AgentCore Deployment
+# =============================================================================
+agentcore:
+  execution_role_arn: ""
 
-Each member account with VPC Flow Log analysis needs:
+# =============================================================================
+# 4. Agent Model
+# =============================================================================
+agent:
+  model:
+    provider: bedrock
+    model_id: global.anthropic.claude-sonnet-4-5-20250929-v1:0
+    temperature: 0.1
+    max_tokens: 8192
+    cache_tools: true
+    cache_ttl: "5m"
 
-1. VPC Flow Logs delivered to S3 in Parquet format
-   - Configure via VPC Console → Flow Logs → Create
-   - Destination: S3 bucket
-   - File format: Parquet (recommended)
-   - **Important:** Use a custom log format (not the default) — see [VPC Flow Logs Custom Log Format](#vpc-flow-logs-custom-log-format) below
-   - See [VPC Flow Logs to S3 guide](https://docs.aws.amazon.com/vpc/latest/userguide/flow-logs-s3.html)
+# =============================================================================
+# 5. MCP (Model Context Protocol)
+# =============================================================================
+mcp:
+  enabled: true
+  servers:
+    aws_knowledge:
+      type: http
+      url: https://knowledge-mcp.global.api.aws
+      enabled: true
 
-2. Athena workgroup with an S3 output location for query results
-   ```
-   Workgroup:  primary (or custom)
-   Output:     s3://YOUR-ACCOUNT-athena-results/vpc-queries/
-   ```
+# =============================================================================
+# 6. Tools
+# =============================================================================
+tools:
+  enabled:
+    - date
+    - athena
+    - analysis
+    - billing
+    - mcp
+```
 
-3. Glue database and table pointing to the VPC Flow Log S3 data
-   - Create via Athena Console or Glue Crawler
-   - Partition by year/month/day for query performance
+---
 
-### S3 Buckets Summary
+## Section Details
 
-| Bucket | Purpose | Account |
-|--------|---------|---------|
-| CUR data bucket | Stores CUR export files | Payer or centralized |
-| CUR Athena results bucket | Stores Athena query output for CUR | Same as CUR data |
-| VPC Flow Log data bucket | Stores VPC Flow Log files | Each member account |
-| VPC Flow Log Athena results bucket | Stores Athena query output for VPC | Each member account |
+### 1. AWS Region (`aws`)
 
-> These buckets can be combined (e.g., one results bucket per account), but the IAM roles must have access to all relevant buckets. See [IAM Permissions](iam-permissions.md) for details.
+| Field | Description | Default |
+|-------|-------------|---------|
+| `region` | AWS region for deployment and API calls | `us-east-1` |
+
+### 2. Account Configuration (`accounts`)
+
+This is the most important section. It defines which AWS accounts the agent accesses.
+
+| Field | Description | Required |
+|-------|-------------|----------|
+| `account_id` | AWS account ID (12 digits) | Yes |
+| `account_type` | `"payer"` or `"member"` | Yes |
+| `role_arn` | IAM role ARN to assume for cross-account access | Payer: Yes, Member: No |
+| `external_id` | External ID for confused deputy prevention | No |
+| `region` | Override region for this account (defaults to `aws.region`) | No |
+| `athena.cur.database` | Athena database containing CUR data | No |
+| `athena.cur.table` | CUR table name (auto-discovered if omitted) | No |
+| `athena.vpc_flowlogs.database` | Athena database containing VPC Flow Logs | No |
+| `athena.vpc_flowlogs.table` | VPC Flow Logs table (auto-discovered if omitted) | No |
+
+**Rules:**
+- Exactly one payer account is required (must have `role_arn`)
+- Member accounts may omit `role_arn` when the agent runs in the same account
+- Athena config can appear on any account type
+- When `table` is omitted, the agent auto-discovers it via AWS Glue Catalog
+
+**Deployment scenarios:**
+
+| Scenario | Description | When to use |
+|----------|-------------|-------------|
+| A: Centralized | Agent runs in same account as CUR/VPC data | Single account or shared logging account |
+| B: Distributed | Agent runs in audit account, data in payer/member accounts | Multi-account with separate data locations |
+
+See `agent/config.yaml.example` for complete examples of both scenarios.
+
+### 3. AgentCore Deployment (`agentcore`)
+
+| Field | Description | Default |
+|-------|-------------|---------|
+| `execution_role_arn` | IAM role ARN for the AgentCore runtime | Auto-created if empty |
+
+When left empty, AgentCore auto-creates a role named `AmazonBedrockAgentCoreSDKRuntime-{region}-{hash}`. After deployment, attach the required inline policy — see [IAM Permissions](iam-permissions.md#2-agentcore-execution-role-agent-account).
+
+### 4. Agent Model (`agent.model`)
+
+| Field | Description | Default |
+|-------|-------------|---------|
+| `provider` | Model provider | `bedrock` |
+| `model_id` | Bedrock model ID | `global.anthropic.claude-sonnet-4-5-20250929-v1:0` |
+| `temperature` | Response randomness (0.0–1.0) | `0.1` |
+| `max_tokens` | Maximum output tokens per response | `8192` |
+| `cache_tools` | Enable tool definition caching | `true` |
+| `cache_ttl` | Cache time-to-live | `"5m"` |
+
+**Prompt caching** reduces costs by ~90% and latency by ~85%. The system prompt and tool definitions are cached across requests.
+
+| `cache_ttl` value | Best for |
+|-------------------|----------|
+| `"5m"` | Interactive CLI sessions (default) |
+| `"1h"` | Batch processing, infrequent access |
+
+### 5. MCP Configuration (`mcp`)
+
+| Field | Description | Default |
+|-------|-------------|---------|
+| `enabled` | Enable/disable MCP servers | `true` |
+| `servers.aws_knowledge.type` | Server transport type | `http` |
+| `servers.aws_knowledge.url` | MCP server endpoint | `https://knowledge-mcp.global.api.aws` |
+| `servers.aws_knowledge.enabled` | Enable this specific server | `true` |
+
+The AWS Knowledge MCP server provides documentation search for cost optimization best practices. No additional cost.
+
+### 6. Tools Configuration (`tools`)
+
+| Tool | Description |
+|------|-------------|
+| `date` | Current date context for accurate time-based queries |
+| `athena` | CUR and VPC Flow Log queries via Amazon Athena |
+| `analysis` | Follow-up suggestions and optimization tips |
+| `billing` | 43 AWS billing APIs (Cost Explorer, Compute Optimizer, etc.) |
+| `mcp` | AWS Knowledge documentation search |
+
+All tools are enabled by default. Remove a tool from the list to disable it.
+
+---
+
+## Customizing Prompts
+
+Edit `shared/prompts.yaml` to add or modify the prompt library:
+
+```yaml
+custom:
+  name: "My Team's Queries"
+  icon: "🎯"
+  prompts:
+    - title: "Production Costs"
+      prompt: "Show me costs for resources tagged with env=prod"
+```
+
+---
+
+## Infrastructure Prerequisites
+
+Before deploying, ensure the required AWS infrastructure is set up. See the following guides:
+
+- **CUR setup:** [AWS Data Exports documentation](https://docs.aws.amazon.com/cur/latest/userguide/dataexports-create-standard.html) — export CUR to S3 in Parquet format with Athena integration enabled
+- **VPC Flow Logs setup:** [VPC Flow Logs to S3 guide](https://docs.aws.amazon.com/vpc/latest/userguide/flow-logs-s3.html) — deliver to S3 in Parquet format with a [custom log format](#vpc-flow-logs-custom-log-format)
+- **IAM roles:** [IAM Permissions](iam-permissions.md) — required policies for all four roles
 
 ### VPC Flow Logs Custom Log Format
 
-The agent's VPC Flow Log queries rely on fields that are **not included in the default log format**. You must configure a custom log format when creating your VPC Flow Logs.
+The agent's VPC Flow Log queries rely on fields **not included in the default log format**. You must configure a custom log format when creating your VPC Flow Logs.
 
 **Recommended custom log format:**
 
@@ -63,7 +199,7 @@ The agent's VPC Flow Log queries rely on fields that are **not included in the d
 ${version} ${account-id} ${interface-id} ${srcaddr} ${dstaddr} ${srcport} ${dstport} ${protocol} ${packets} ${bytes} ${start} ${end} ${action} ${log-status} ${vpc-id} ${subnet-id} ${instance-id} ${az-id} ${pkt-srcaddr} ${pkt-dstaddr} ${flow-direction} ${traffic-path}
 ```
 
-**Required fields** (agent queries will fail without these):
+**Required fields:**
 
 | Field | Purpose |
 |-------|---------|
@@ -76,145 +212,15 @@ ${version} ${account-id} ${interface-id} ${srcaddr} ${dstaddr} ${srcport} ${dstp
 | `instance-id` | Map traffic to EC2 instances |
 | `az-id` | Cross-AZ traffic analysis |
 
-**Optional but recommended fields:**
+**Optional but recommended:**
 
 | Field | Purpose |
 |-------|---------|
-| `srcport` / `dstport` | Port-based traffic analysis (database, web, etc.) |
+| `srcport` / `dstport` | Port-based traffic analysis |
 | `protocol` | Protocol breakdown (TCP, UDP, ICMP) |
 | `flow-direction` | Ingress vs egress analysis |
 | `traffic-path` | Identify NAT Gateway, VPC peering, etc. |
 | `pkt-srcaddr` / `pkt-dstaddr` | Original IPs when traffic traverses NAT |
 | `vpc-id` / `subnet-id` | Network topology context |
 
-> **Note:** If you have existing VPC Flow Logs with the default format, you'll need to create new flow logs with the custom format. Existing logs cannot be retroactively updated. See [AWS documentation on custom log format](https://docs.aws.amazon.com/vpc/latest/userguide/flow-log-records.html#flow-logs-fields).
-
----
-
-## Overview
-
-The agent is configured via `agent/config.yaml`. Copy from the example template:
-
-```bash
-cp agent/config.yaml.example agent/config.yaml
-```
-
-## Account Configuration
-
-Athena settings (CUR and VPC Flow Logs) are configured per-account inside the `accounts` section.
-
-- Exactly one payer account is required (must have `role_arn`)
-- Member accounts may omit `role_arn` when the agent runs in the same account
-- Athena config can appear on any account type
-
-### Account Fields
-
-| Field | Description | Required |
-|-------|-------------|----------|
-| `account_id` | AWS account ID (12 digits) | Yes |
-| `account_type` | `"payer"` or `"member"` | Yes |
-| `role_arn` | IAM role ARN to assume | Payer: Yes, Member: No |
-| `external_id` | External ID for confused deputy prevention | No |
-| `region` | AWS region (defaults to `aws.region`) | No |
-| `athena.cur.database` | CUR Athena database name | No |
-| `athena.cur.table` | CUR Athena table name (auto-discovered if omitted) | No |
-| `athena.vpc_flowlogs.database` | VPC Flow Logs database | No |
-| `athena.vpc_flowlogs.table` | VPC Flow Logs table (auto-discovered if omitted) | No |
-
-## Deployment Scenarios
-
-### Scenario A: Centralized Logging Account
-
-Agent runs in the same account as CUR/VPC data. No STS calls needed for Athena queries.
-
-```yaml
-accounts:
-  # Payer — billing APIs only
-  - account_id: "111111111111"
-    role_arn: "arn:aws:iam::111111111111:role/CostAnalyzerAgentPayerRole"
-    account_type: payer
-
-  # Local account — agent runs here, no role_arn needed
-  - account_id: "999999999999"
-    account_type: member
-    athena:
-      cur:
-        database: cur_db
-        table: cur_table
-      vpc_flowlogs:
-        database: vpc_db
-        table: flow_logs
-```
-
-### Scenario B: Audit Account (Distributed Data)
-
-Agent runs in a separate account. CUR in payer, VPC logs in member accounts. All need `role_arn`.
-
-```yaml
-accounts:
-  - account_id: "111111111111"
-    role_arn: "arn:aws:iam::111111111111:role/CostAnalyzerAgentPayerRole"
-    account_type: payer
-    athena:
-      cur:
-        database: cur_db
-        table: cur_table
-
-  - account_id: "222222222222"
-    role_arn: "arn:aws:iam::222222222222:role/CostAnalyzerAgentMemberRole"
-    account_type: member
-    athena:
-      vpc_flowlogs:
-        database: vpc_db
-        table: flow_logs
-```
-
-## Model Configuration
-
-```yaml
-agent:
-  model:
-    model_id: global.anthropic.claude-sonnet-4-5-20250929-v1:0
-    temperature: 0.1
-    max_tokens: 8192
-    cache_tools: true   # Tool definition caching
-    cache_ttl: "5m"     # "5m" for interactive, "1h" for batch
-```
-
-## Prompt Caching
-
-Enabled by default. Caches the system prompt and tool definitions to reduce costs by ~90%.
-
-| TTL | Best for |
-|-----|----------|
-| `"5m"` | Interactive CLI sessions (default) |
-| `"1h"` | Batch processing, infrequent access |
-
-Cost example (100 queries): $1.50 without caching → $0.17 with caching.
-
-## Customizing Prompts
-
-Edit `shared/prompts.yaml` to add or modify prompts:
-
-```yaml
-custom:
-  name: "My Team's Queries"
-  icon: "🎯"
-  prompts:
-    - title: "Production Costs"
-      prompt: "Show me costs for resources tagged with env=prod"
-```
-
-## MCP Configuration
-
-The AWS Knowledge MCP server is enabled by default for documentation search:
-
-```yaml
-mcp:
-  enabled: true
-  servers:
-    aws_knowledge:
-      type: http
-      url: https://knowledge-mcp.global.api.aws
-      enabled: true
-```
+> **Note:** Existing VPC Flow Logs with the default format cannot be retroactively updated. Create new flow logs with the custom format. See [AWS documentation](https://docs.aws.amazon.com/vpc/latest/userguide/flow-log-records.html#flow-logs-fields).
