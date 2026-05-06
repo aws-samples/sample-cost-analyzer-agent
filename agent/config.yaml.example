@@ -21,26 +21,24 @@ aws:
 # - Athena config can appear on any account type (payer or member)
 # - The table field is optional — when omitted, the agent auto-discovers tables
 #
-# This example uses Scenario A: Centralized Logging Account
-# The agent runs in a logging/analytics account that has both CUR and VPC Flow
-# Log data in local Athena tables. The payer account is only needed for billing
-# API calls (Cost Explorer, Budgets, etc.).
+# Default scenario: CUR data in payer account, VPC Flow Logs in member accounts.
+# All accounts require role_arn for cross-account access via STS AssumeRole.
 
 accounts:
-  # Payer account — used for billing APIs only (Cost Explorer, Budgets, etc.)
-  # role_arn is required because the agent never runs in the payer account.
+  # Payer account — billing APIs and CUR Athena data
   - account_id: "<PAYER_ACCOUNT_ID>"
     role_arn: "arn:aws:iam::<PAYER_ACCOUNT_ID>:role/CostAnalyzerAgentPayerRole"
     account_type: payer
-
-  # Local logging account — agent runs here, no role_arn needed.
-  # Both CUR and VPC Flow Log Athena tables are in this account.
-  - account_id: "<MEMBER_ACCOUNT_ID>"
-    account_type: member
     athena:
       cur:
         database: <YOUR_CUR_DATABASE>
         # table: <YOUR_CUR_TABLE>  # Optional — omit to auto-discover
+
+  # Member account with VPC Flow Log data
+  - account_id: "<MEMBER_ACCOUNT_ID>"
+    role_arn: "arn:aws:iam::<MEMBER_ACCOUNT_ID>:role/CostAnalyzerAgentMemberRole"
+    account_type: member
+    athena:
       vpc_flowlogs:
         database: <YOUR_VPC_DATABASE>
         # table: <YOUR_VPC_TABLE>  # Optional — omit to auto-discover
@@ -86,37 +84,26 @@ tools:
     - mcp
 
 # =============================================================================
-# Alternative: Scenario B — Audit Account (Distributed Data)
+# Alternative: Centralized Logging Account
 # =============================================================================
-# Use this instead of the accounts section above if the agent runs in a
-# separate audit account. CUR data lives in the payer account, and VPC Flow
-# Log data lives in individual member accounts. All accounts require role_arn
-# for cross-account access via STS AssumeRole.
+# Use this instead of the accounts section above if the agent runs in the same
+# account as CUR and VPC Flow Log data. No STS AssumeRole needed for Athena
+# queries since the data is local. The payer account is only needed for billing
+# API calls.
 #
 # accounts:
-#   # Payer account — billing APIs and CUR Athena data
+#   # Payer account — billing APIs only
 #   - account_id: "<PAYER_ACCOUNT_ID>"
 #     role_arn: "arn:aws:iam::<PAYER_ACCOUNT_ID>:role/CostAnalyzerAgentPayerRole"
 #     account_type: payer
+#
+#   # Local account — agent runs here, no role_arn needed
+#   - account_id: "<LOCAL_ACCOUNT_ID>"
+#     account_type: member
 #     athena:
 #       cur:
 #         database: <YOUR_CUR_DATABASE>
 #         # table: <YOUR_CUR_TABLE>  # Optional — omit to auto-discover
-#
-#   # Member account with VPC Flow Log data
-#   - account_id: "<MEMBER_ACCOUNT_ID_1>"
-#     role_arn: "arn:aws:iam::<MEMBER_ACCOUNT_ID_1>:role/CostAnalyzerAgentMemberRole"
-#     account_type: member
-#     athena:
-#       vpc_flowlogs:
-#         database: <YOUR_VPC_DATABASE>
-#         # table: <YOUR_VPC_TABLE>  # Optional — omit to auto-discover
-#
-#   # Another member account with VPC Flow Log data
-#   - account_id: "<MEMBER_ACCOUNT_ID_2>"
-#     role_arn: "arn:aws:iam::<MEMBER_ACCOUNT_ID_2>:role/CostAnalyzerAgentMemberRole"
-#     account_type: member
-#     athena:
 #       vpc_flowlogs:
 #         database: <YOUR_VPC_DATABASE>
 #         # table: <YOUR_VPC_TABLE>  # Optional — omit to auto-discover

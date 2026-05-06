@@ -26,12 +26,14 @@ accounts:
   - account_id: "<PAYER_ACCOUNT_ID>"
     role_arn: "arn:aws:iam::<PAYER_ACCOUNT_ID>:role/CostAnalyzerAgentPayerRole"
     account_type: payer
-
-  - account_id: "<MEMBER_ACCOUNT_ID>"
-    account_type: member
     athena:
       cur:
         database: <YOUR_CUR_DATABASE>
+
+  - account_id: "<MEMBER_ACCOUNT_ID>"
+    role_arn: "arn:aws:iam::<MEMBER_ACCOUNT_ID>:role/CostAnalyzerAgentMemberRole"
+    account_type: member
+    athena:
       vpc_flowlogs:
         database: <YOUR_VPC_DATABASE>
 
