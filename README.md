@@ -63,7 +63,7 @@ Strands Agent (Claude Sonnet 4.5 on Bedrock AgentCore)
   └── Returns: Top instances with costs, usage types, and regions
 ```
 
-The agent autonomously selects from 43 tools based on the question:
+The agent autonomously selects from 11 tools based on the question:
 - **Service-level questions** → Cost Explorer API (fast, aggregated)
 - **Resource-level questions** → CUR Athena queries (detailed, per-resource)
 - **Network questions** → VPC Flow Log Athena queries (traffic patterns)
@@ -176,7 +176,7 @@ Which instances generate the most cross-AZ traffic?
 |----------|-------------|
 | [Configuration Guide](docs/configuration.md) | Account setup, Athena config, cross-account access, prompt caching |
 | [IAM Permissions](docs/iam-permissions.md) | Required IAM policies for deployment, invocation, and runtime |
-| [Tools Reference](docs/tools.md) | All 50+ tools: billing, Athena, knowledge, helpers |
+| [Tools Reference](docs/tools.md) | 43 billing APIs + 8 specialized tools (Athena, date, analysis, MCP) |
 | [CLI Guide](cli/README.md) | CLI usage, prompt library, debug mode |
 
 ## Supported and Not Supported

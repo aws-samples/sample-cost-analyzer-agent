@@ -104,7 +104,7 @@ tests/
 ### Key adaptation notes
 
 - The cost-analyzer invokes tools directly via Strands SDK, not through an MCP Gateway. The `agent_client.py` wrapper should call the agent's `__call__` method and capture tool invocations from the response.
-- The cost-analyzer has 50+ tools vs 17 in the finops-agent. Start with scenarios for the most-used tools: `get_cost_and_usage`, `get_cost_forecast`, `get_savings_plans_purchase_recommendation`, `execute_cur_athena_query`.
+- The cost-analyzer has 43 billing API tools + 8 specialized tools vs 17 in the finops-agent. Start with scenarios for the most-used tools: `get_cost_and_usage`, `get_cost_forecast`, `get_savings_plans_purchase_recommendation`, `execute_cur_athena_query`.
 - Add a `make test-evals` target to the project.
 
 ### Acceptance criteria

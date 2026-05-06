@@ -1,8 +1,8 @@
 # Tools Reference
 
-The agent has 50+ tools across five categories.
+The agent provides 43 billing API tools + 8 specialized tools (Athena, date, analysis) + AWS Knowledge via MCP.
 
-## Billing Tools (43 native tools)
+## Billing Tools (43 billing APIs)
 
 All billing tools route through the payer account via `SessionManager` for org-wide data access.
 
