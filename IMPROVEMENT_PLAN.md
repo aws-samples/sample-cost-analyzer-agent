@@ -327,3 +327,36 @@ The finops-agent's post-processing pipeline:
 **Recommended execution order:** 1 → 4 → 5 → 2 → 6 → 3 → 7
 
 Items 1 and 4 are quick wins. Item 5 is a prerequisite for item 2. Item 6 ties the eval workflow together. Items 3 and 7 are performance optimizations that can be done independently.
+
+---
+
+## 8. Athena Tools Hardening
+
+**Priority:** P1 — Reliability & Cost Protection  
+**Effort:** 1–2 days  
+**Location:** `agent/tools/athena_tools.py`, `agent/services/athena_service.py`
+
+### Issues Identified
+
+| # | Issue | Impact | Fix |
+|---|-------|--------|-----|
+| 1 | **100-row hard limit with no indication** | Users miss data beyond 100 rows, no pagination | Add row limit note to output, or support `NextToken` pagination |
+| 2 | **Hardcoded date in CUR schema example** | LLM may copy `2026-01-01` instead of calculating correct date | Dynamically generate example with current month, or add "replace with actual date" comment |
+| 3 | **Hardcoded Unix timestamps in VPC examples** | LLM must calculate epoch times — error-prone | Add `to_unixtime()` conversion pattern in examples |
+| 4 | **No scan size guard** | Poorly filtered VPC query can scan TBs ($5+ per query) | Add `LIMIT` enforcement check, or configurable `max_scan_bytes` threshold |
+| 5 | **Docstring says "default (payer)" but code uses first member** | Minor doc inaccuracy in `execute_vpc_flowlog_query` | Fix docstring to say "first configured member account" |
+| 6 | **60-second query timeout too short for VPC** | Complex VPC queries on large datasets timeout silently | Increase default for VPC, or suggest partition filters on timeout |
+| 7 | **No inter-AZ correlation workflow** | Agent acknowledges limitation but doesn't guide CUR+VPC correlation | Add guidance: "Query CUR for inter-AZ costs by resource, then VPC for traffic patterns" |
+| 8 | **No EXPLAIN support for cost estimation** | Can't preview scan size before running expensive queries | Encourage `EXPLAIN` before large queries, or auto-run it |
+| 9 | **Multi-account query doesn't aggregate results** | Per-account top-N, not global top-N across accounts | Add post-processing to merge and re-sort, or document limitation |
+
+### Recommended Implementation Order
+
+1. **#5** — Docstring fix (5 minutes)
+2. **#1** — Add "Results limited to 100 rows" note to output (15 minutes)
+3. **#4** — Scan size guard / LIMIT enforcement (1–2 hours)
+4. **#2 + #3** — Dynamic date examples (1 hour)
+5. **#6** — Configurable timeout per tool type (30 minutes)
+6. **#7** — Inter-AZ correlation guidance in schema info (30 minutes)
+7. **#8** — EXPLAIN pre-check (1–2 hours)
+8. **#9** — Multi-account result aggregation (2–3 hours)
