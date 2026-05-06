@@ -6,6 +6,8 @@ The agent is configured via `agent/config.yaml`. Copy from the example template 
 cp agent/config.yaml.example agent/config.yaml
 ```
 
+> **Before configuring**, ensure the required AWS infrastructure (CUR, Athena, VPC Flow Logs) is set up. See [Infrastructure Prerequisites](#infrastructure-prerequisites) at the bottom of this page.
+
 ## Full Configuration File
 
 Below is the complete configuration structure. Each section is explained in detail after.
