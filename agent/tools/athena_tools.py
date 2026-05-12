@@ -1,6 +1,7 @@
 """Athena query tools."""
 import json
 import logging
+from datetime import datetime, timedelta
 from typing import Optional, TYPE_CHECKING
 
 from strands import tool
@@ -127,6 +128,15 @@ class AthenaTools(BaseTool):
         if error:
             return error
 
+        # Generate dynamic date examples based on current date
+        now = datetime.now()
+        if now.month == 1:
+            last_month_start = datetime(now.year - 1, 12, 1)
+            last_month_end = datetime(now.year, 1, 1)
+        else:
+            last_month_start = datetime(now.year, now.month - 1, 1)
+            last_month_end = datetime(now.year, now.month, 1)
+
         info = {
             "table": f"{self.athena_service.database}.{self.athena_service.table}",
             
@@ -162,15 +172,16 @@ class AthenaTools(BaseTool):
             },
             
             "example_query_template": f"""
--- Top resources by cost for a service
+-- Top resources by cost for a service (last complete month)
+-- IMPORTANT: Replace dates with actual target period. Use get_current_date_context() for ranges.
 SELECT 
     line_item_resource_id,
     line_item_product_code,
     SUM(line_item_unblended_cost) as total_cost,
     COUNT(*) as line_items
 FROM {self.athena_service.database}.{self.athena_service.table}
-WHERE bill_billing_period_start_date >= DATE('2026-01-01')
-    AND bill_billing_period_start_date < DATE('2026-02-01')
+WHERE bill_billing_period_start_date >= DATE('{last_month_start.strftime('%Y-%m-%d')}')
+    AND bill_billing_period_start_date < DATE('{last_month_end.strftime('%Y-%m-%d')}')
     AND line_item_product_code = 'AmazonElastiCache'
     AND line_item_resource_id != ''
 GROUP BY line_item_resource_id, line_item_product_code
@@ -298,6 +309,11 @@ Query Stats: {stats['data_scanned_mb']:.2f} MB scanned in {stats['execution_time
             elif 'date' in partition_cols:
                 partition_examples = """date = '2026-02-07'"""
         
+        # Generate dynamic timestamp examples for VPC queries
+        # Use yesterday as a safe default example date
+        yesterday = datetime.now() - timedelta(days=1)
+        example_date = yesterday.strftime('%Y-%m-%d')
+        
         info = {
             "table": f"{database}.{table}",
             "status": "validated",
@@ -305,13 +321,26 @@ Query Stats: {stats['data_scanned_mb']:.2f} MB scanned in {stats['execution_time
             "columns": schema['column_names'],
             "partitions": partition_info.get('partition_columns', []),
             
+            "timestamp_guidance": f"""
+VPC Flow Logs use Unix epoch timestamps (seconds since 1970-01-01 UTC) for start/end fields.
+
+To convert dates to timestamps in Athena SQL, use:
+  to_unixtime(TIMESTAMP 'YYYY-MM-DD HH:MM:SS')
+
+Example for {example_date}:
+  start >= to_unixtime(TIMESTAMP '{example_date} 00:00:00')
+  AND end <= to_unixtime(TIMESTAMP '{example_date} 23:59:59')
+
+ALWAYS use get_current_date_context() to determine the correct date range,
+then use to_unixtime() in your query. Do NOT hardcode epoch values.
+""",
+            
             "simple_query_examples": {
                 
                 "1_egress_traffic_by_source": f"""
--- Egress traffic by source instance (AVOIDS DOUBLE-COUNTING)
--- Uses flow_direction='egress' to count only sender-side records.
--- If flow_direction column is not available, remove that filter and note
--- that totals may be ~2x actual if both ENIs have flow logging enabled.
+-- Egress traffic by source instance (AVOIDS DOUBLE-COUNTING + CORRECT IP MAPPING)
+-- With flow_direction='egress': instance_id = true owner of srcaddr
+-- Without this filter, instance_id may show the RECEIVER's instance for the same srcaddr
 SELECT 
     srcaddr,
     dstaddr,
@@ -321,8 +350,8 @@ SELECT
     COUNT(*) as flow_count
 FROM {database}.{table}
 WHERE {partition_examples}
-  AND start >= 1770451200
-  AND end <= 1770537599
+  AND start >= to_unixtime(TIMESTAMP '{example_date} 00:00:00')
+  AND "end" <= to_unixtime(TIMESTAMP '{example_date} 23:59:59')
   AND log_status = 'OK'
   AND action = 'ACCEPT'
   AND flow_direction = 'egress'
@@ -340,8 +369,8 @@ SELECT
     COUNT(*) as flow_count
 FROM {database}.{table}
 WHERE {partition_examples}
-  AND start >= 1770451200
-  AND end <= 1770537599
+  AND start >= to_unixtime(TIMESTAMP '{example_date} 00:00:00')
+  AND "end" <= to_unixtime(TIMESTAMP '{example_date} 23:59:59')
   AND log_status = 'OK'
   AND action = 'ACCEPT'
   AND instance_id != '-'
@@ -362,8 +391,8 @@ SELECT
     COUNT(*) as flow_count
 FROM {database}.{table}
 WHERE {partition_examples}
-  AND start >= 1770451200
-  AND end <= 1770537599
+  AND start >= to_unixtime(TIMESTAMP '{example_date} 00:00:00')
+  AND "end" <= to_unixtime(TIMESTAMP '{example_date} 23:59:59')
   AND log_status = 'OK'
   AND action = 'ACCEPT'
   AND flow_direction = 'ingress'
@@ -374,28 +403,29 @@ LIMIT 50
 
                 "4_fallback_no_flow_direction": f"""
 -- FALLBACK: If flow_direction column is NOT available
--- Filter by instance_id != '-' to get only records logged on the source ENI
--- WARNING: May still double-count if both ENIs log; note this in results
+-- ⚠️ WARNING: Without flow_direction, instance_id does NOT reliably indicate
+-- which instance owns srcaddr. The same srcaddr may appear with DIFFERENT
+-- instance_ids (sender's ENI vs receiver's ENI both log the same packets).
+-- DO NOT conclude one IP belongs to multiple instances from this query.
 SELECT 
     srcaddr,
     dstaddr,
-    instance_id,
-    az_id,
     SUM(bytes) / 1073741824.0 as gb_transferred,
     COUNT(*) as flow_count
 FROM {database}.{table}
 WHERE {partition_examples}
-  AND start >= 1770451200
-  AND end <= 1770537599
+  AND start >= to_unixtime(TIMESTAMP '{example_date} 00:00:00')
+  AND "end" <= to_unixtime(TIMESTAMP '{example_date} 23:59:59')
   AND log_status = 'OK'
   AND action = 'ACCEPT'
-  AND instance_id != '-'
-GROUP BY srcaddr, dstaddr, instance_id, az_id
+GROUP BY srcaddr, dstaddr
 ORDER BY gb_transferred DESC
 LIMIT 100
--- ⚠️ NOTE: If flow_direction is unavailable, these totals may include
--- both sender-side and receiver-side records. Actual transfer may be ~50%
--- of reported values. Cross-reference with CUR data transfer costs.
+-- ⚠️ NOTES:
+-- 1. Totals may be ~2x actual if both ENIs have flow logging (double-counted).
+-- 2. To map IPs to instances, use EC2 DescribeInstances or filter by
+--    flow_direction='egress' (if available) where instance_id = srcaddr owner.
+-- 3. Cross-reference with CUR data transfer costs for ground truth.
 """
             },
             
@@ -416,26 +446,32 @@ LIMIT 100
             ],
             
             "double_counting_warning": """
-⚠️ VPC FLOW LOG DOUBLE-COUNTING:
+⚠️ VPC FLOW LOG DOUBLE-COUNTING AND instance_id SEMANTICS:
 
 VPC Flow Logs record traffic PER ENI. For traffic between instances A and B,
 BOTH ENIs generate a record for the SAME packets:
-  - A's ENI: srcaddr=A, dstaddr=B, bytes=X (logged as egress on A)
-  - B's ENI: srcaddr=A, dstaddr=B, bytes=X (logged as ingress on B)
+  - A's ENI: srcaddr=A, dstaddr=B, bytes=X, instance_id=A, flow_direction=egress
+  - B's ENI: srcaddr=A, dstaddr=B, bytes=X, instance_id=B, flow_direction=ingress
 
 A naive GROUP BY srcaddr, dstaddr with SUM(bytes) will count X TWICE.
+A naive GROUP BY srcaddr, instance_id will show ONE IP mapped to TWO instances (WRONG).
 
-TO FIX:
-1. BEST: Add WHERE flow_direction = 'egress' (only sender-side records)
-2. ALT: Add WHERE flow_direction = 'ingress' (only receiver-side records)
-3. FALLBACK: If flow_direction unavailable, clearly state in results that
-   totals may be ~2x actual and recommend cross-referencing with CUR costs.
+The instance_id field = "which instance's ENI logged this record", NOT "who owns srcaddr".
+
+TO FIX BOTH ISSUES:
+1. BEST: Add WHERE flow_direction = 'egress'
+   - Deduplicates bytes (only sender-side counted)
+   - Makes instance_id = true owner of srcaddr
+2. FALLBACK: If flow_direction unavailable:
+   - Do NOT conclude one IP belongs to multiple instances
+   - Cross-reference with EC2 DescribeInstances for authoritative IP-to-instance mapping
+   - Note that byte totals may be ~2x actual
 
 COMMON MISINTERPRETATION:
-If you see "instance B (IP 10.0.2.9) sends 1TB to 10.0.2.9" — this is WRONG.
-It means the query picked up B's ingress record (srcaddr=sender, dstaddr=B)
-and incorrectly attributed it as B sending to itself. Filter by flow_direction
-or instance_id to disambiguate.
+"Source IP 172.31.9.176 (instance i-aaa & i-bbb)" — THIS IS WRONG.
+One IP belongs to ONE instance. The second instance_id appeared because its ENI
+logged the ingress copy of the same packets. Filter by flow_direction='egress'
+to get the correct single-instance attribution.
 """,
             
             "inter_az_analysis_note": """
@@ -471,7 +507,7 @@ Simple approach:
         This helps pinpoint the source of inter-AZ, inter-region, or internet egress costs.
         
         When multiple member accounts are configured, you can target a specific account by
-        providing its account_id. If omitted, the default (payer) Athena service is used.
+        providing its account_id. If omitted, the first configured member account's Athena service is used.
         
         ⚠️ DOUBLE-COUNTING WARNING:
         VPC Flow Logs record per ENI. Traffic between two instances generates records on BOTH ENIs.
