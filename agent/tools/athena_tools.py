@@ -307,8 +307,75 @@ Query Stats: {stats['data_scanned_mb']:.2f} MB scanned in {stats['execution_time
             
             "simple_query_examples": {
                 
-                "1_basic_aggregation": f"""
--- Simple aggregation by source (SAFE - no JOINs)
+                "1_egress_traffic_by_source": f"""
+-- Egress traffic by source instance (AVOIDS DOUBLE-COUNTING)
+-- Uses flow_direction='egress' to count only sender-side records.
+-- If flow_direction column is not available, remove that filter and note
+-- that totals may be ~2x actual if both ENIs have flow logging enabled.
+SELECT 
+    srcaddr,
+    dstaddr,
+    instance_id as source_instance,
+    az_id as source_az,
+    SUM(bytes) / 1073741824.0 as gb_transferred,
+    COUNT(*) as flow_count
+FROM {database}.{table}
+WHERE {partition_examples}
+  AND start >= 1770451200
+  AND end <= 1770537599
+  AND log_status = 'OK'
+  AND action = 'ACCEPT'
+  AND flow_direction = 'egress'
+GROUP BY srcaddr, dstaddr, instance_id, az_id
+ORDER BY gb_transferred DESC
+LIMIT 100
+""",
+                
+                "2_top_instances_egress": f"""
+-- Top instances by EGRESS traffic (sender-side only, no double-count)
+SELECT 
+    instance_id,
+    az_id,
+    SUM(bytes) / 1073741824.0 as gb_transferred,
+    COUNT(*) as flow_count
+FROM {database}.{table}
+WHERE {partition_examples}
+  AND start >= 1770451200
+  AND end <= 1770537599
+  AND log_status = 'OK'
+  AND action = 'ACCEPT'
+  AND instance_id != '-'
+  AND flow_direction = 'egress'
+GROUP BY instance_id, az_id
+ORDER BY gb_transferred DESC
+LIMIT 50
+""",
+                
+                "3_traffic_by_destination": f"""
+-- Traffic received by destination IP (ingress perspective)
+-- NOTE: Use flow_direction='ingress' here to see what each destination receives
+-- without double-counting with egress records
+SELECT 
+    dstaddr,
+    SUM(bytes) / 1073741824.0 as gb_received,
+    COUNT(DISTINCT srcaddr) as unique_sources,
+    COUNT(*) as flow_count
+FROM {database}.{table}
+WHERE {partition_examples}
+  AND start >= 1770451200
+  AND end <= 1770537599
+  AND log_status = 'OK'
+  AND action = 'ACCEPT'
+  AND flow_direction = 'ingress'
+GROUP BY dstaddr
+ORDER BY gb_received DESC
+LIMIT 50
+""",
+
+                "4_fallback_no_flow_direction": f"""
+-- FALLBACK: If flow_direction column is NOT available
+-- Filter by instance_id != '-' to get only records logged on the source ENI
+-- WARNING: May still double-count if both ENIs log; note this in results
 SELECT 
     srcaddr,
     dstaddr,
@@ -322,46 +389,13 @@ WHERE {partition_examples}
   AND end <= 1770537599
   AND log_status = 'OK'
   AND action = 'ACCEPT'
+  AND instance_id != '-'
 GROUP BY srcaddr, dstaddr, instance_id, az_id
 ORDER BY gb_transferred DESC
 LIMIT 100
-""",
-                
-                "2_top_instances": f"""
--- Top instances by traffic (SAFE - simple aggregation)
-SELECT 
-    instance_id,
-    az_id,
-    SUM(bytes) / 1073741824.0 as gb_transferred,
-    COUNT(*) as flow_count
-FROM {database}.{table}
-WHERE {partition_examples}
-  AND start >= 1770451200
-  AND end <= 1770537599
-  AND log_status = 'OK'
-  AND action = 'ACCEPT'
-  AND instance_id != '-'
-GROUP BY instance_id, az_id
-ORDER BY gb_transferred DESC
-LIMIT 50
-""",
-                
-                "3_traffic_by_destination": f"""
--- Traffic by destination IP (SAFE - simple aggregation)
-SELECT 
-    dstaddr,
-    SUM(bytes) / 1073741824.0 as gb_transferred,
-    COUNT(DISTINCT srcaddr) as unique_sources,
-    COUNT(*) as flow_count
-FROM {database}.{table}
-WHERE {partition_examples}
-  AND start >= 1770451200
-  AND end <= 1770537599
-  AND log_status = 'OK'
-  AND action = 'ACCEPT'
-GROUP BY dstaddr
-ORDER BY gb_transferred DESC
-LIMIT 50
+-- ⚠️ NOTE: If flow_direction is unavailable, these totals may include
+-- both sender-side and receiver-side records. Actual transfer may be ~50%
+-- of reported values. Cross-reference with CUR data transfer costs.
 """
             },
             
@@ -374,8 +408,35 @@ LIMIT 50
                 "Use simple aggregations (SUM, COUNT, GROUP BY)",
                 "AVOID complex JOINs - they can cause data duplication",
                 "Always LIMIT results (e.g., LIMIT 100)",
-                "Use actual column names from 'columns' list above"
+                "Use actual column names from 'columns' list above",
+                "⚠️ CRITICAL: Use flow_direction='egress' to avoid double-counting (preferred)",
+                "⚠️ If flow_direction unavailable, note that totals may be 2x actual transfer",
+                "⚠️ Cross-reference with CUR data transfer costs for ground truth on billed bytes",
+                "⚠️ Never conclude 'instance sends to itself' — that's a double-count artifact"
             ],
+            
+            "double_counting_warning": """
+⚠️ VPC FLOW LOG DOUBLE-COUNTING:
+
+VPC Flow Logs record traffic PER ENI. For traffic between instances A and B,
+BOTH ENIs generate a record for the SAME packets:
+  - A's ENI: srcaddr=A, dstaddr=B, bytes=X (logged as egress on A)
+  - B's ENI: srcaddr=A, dstaddr=B, bytes=X (logged as ingress on B)
+
+A naive GROUP BY srcaddr, dstaddr with SUM(bytes) will count X TWICE.
+
+TO FIX:
+1. BEST: Add WHERE flow_direction = 'egress' (only sender-side records)
+2. ALT: Add WHERE flow_direction = 'ingress' (only receiver-side records)
+3. FALLBACK: If flow_direction unavailable, clearly state in results that
+   totals may be ~2x actual and recommend cross-referencing with CUR costs.
+
+COMMON MISINTERPRETATION:
+If you see "instance B (IP 10.0.2.9) sends 1TB to 10.0.2.9" — this is WRONG.
+It means the query picked up B's ingress record (srcaddr=sender, dstaddr=B)
+and incorrectly attributed it as B sending to itself. Filter by flow_direction
+or instance_id to disambiguate.
+""",
             
             "inter_az_analysis_note": """
 IMPORTANT: Inter-AZ Analysis Limitation
@@ -383,16 +444,18 @@ IMPORTANT: Inter-AZ Analysis Limitation
 VPC Flow Logs only show the SOURCE AZ (az_id field), not destination AZ.
 To identify Inter-AZ traffic, you need to:
 
-1. Query traffic by source AZ (simple, safe)
-2. Manually correlate with instance locations
-3. Use CUR data to see actual Inter-AZ charges
+1. Query EGRESS traffic by source AZ (use flow_direction='egress')
+2. Manually correlate destination IPs with their AZ using AWS Console or CLI
+3. Use CUR data to see actual Inter-AZ charges (ground truth for billing)
 
-DO NOT use complex JOINs to find destination AZs - this causes data duplication.
+DO NOT use complex JOINs to find destination AZs - this causes data duplication
+AND compounds the double-counting problem.
 
 Simple approach:
+- Filter flow_direction='egress' to get sender-side only
 - Group by source az_id and destination IP
-- Check which destination IPs are in different AZs using AWS Console or CLI
-- Calculate transfer based on source-side data only
+- Check which destination IPs are in different AZs
+- Compare with CUR Inter-AZ line items for cost validation
 """
         }
         
@@ -410,15 +473,23 @@ Simple approach:
         When multiple member accounts are configured, you can target a specific account by
         providing its account_id. If omitted, the default (payer) Athena service is used.
         
+        ⚠️ DOUBLE-COUNTING WARNING:
+        VPC Flow Logs record per ENI. Traffic between two instances generates records on BOTH ENIs.
+        A naive SUM(bytes) will count the same transfer TWICE.
+        - ALWAYS use flow_direction='egress' filter to count only sender-side records
+        - If flow_direction is unavailable, note in results that totals may be ~2x actual
+        - Cross-reference with CUR data transfer costs for ground truth
+        
         BEST PRACTICES:
         1. Use partition columns for better performance
         2. Filter by time range using start/end timestamps
         3. Filter by action='ACCEPT' for successful traffic
         4. Filter by log_status='OK' for valid records
-        5. Aggregate by srcaddr, instance_id, or interface_id
-        6. Convert bytes to GB: bytes / 1073741824.0
-        7. Always LIMIT results (e.g., LIMIT 100)
-        8. AVOID complex JOINs - they cause data duplication
+        5. Filter by flow_direction='egress' to avoid double-counting
+        6. Aggregate by srcaddr, instance_id, or interface_id
+        7. Convert bytes to GB: bytes / 1073741824.0
+        8. Always LIMIT results (e.g., LIMIT 100)
+        9. AVOID complex JOINs - they cause data duplication
         
         Args:
             sql_query: The SQL query to execute against VPC Flow Logs

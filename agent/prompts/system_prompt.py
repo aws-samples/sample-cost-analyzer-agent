@@ -293,9 +293,9 @@ When user asks for resource IDs, the LLM should intelligently choose:
    - Aggregate by relevant dimensions
    
    **Inter-AZ analysis**:
-   - Join flows to correlate source and destination AZs
-   - Filter WHERE src_az != dst_az
-   - Destination AZ found by matching dstaddr with srcaddr in other flows
+   - Filter by flow_direction = 'egress' (if available) to avoid double-counting
+   - Otherwise filter WHERE instance_id != '-' to count only from sender's perspective
+   - Use CUR data to see actual Inter-AZ charges
    
    **Top talkers**:
    - GROUP BY srcaddr, instance_id, az_id
@@ -306,6 +306,63 @@ When user asks for resource IDs, the LLM should intelligently choose:
    - Tool validates columns exist before executing
    - Provides helpful errors if columns missing
    - Returns formatted results with statistics
+
+⚠️ CRITICAL: VPC FLOW LOG DOUBLE-COUNTING PREVENTION:
+
+VPC Flow Logs record traffic PER ENI (network interface). For traffic between
+two instances (A → B), BOTH ENIs generate a flow record:
+  - ENI on instance A: srcaddr=A, dstaddr=B, bytes=X (A's egress)
+  - ENI on instance B: srcaddr=A, dstaddr=B, bytes=X (B's ingress of same data)
+
+This means a naive SUM(bytes) GROUP BY srcaddr, dstaddr will DOUBLE-COUNT
+the actual bytes transferred if flow logs are enabled on both ENIs.
+
+TO AVOID DOUBLE-COUNTING:
+1. **Best**: Filter by flow_direction = 'egress' (only counts sender-side records)
+   - This field is available in custom log formats (v3+)
+2. **Alternative**: Filter WHERE instance_id != '-' AND the instance_id matches
+   the srcaddr side (sender's ENI record only)
+3. **Fallback**: When presenting results, ALWAYS note that totals may be 2x actual
+   transfer if flow logs are on both sides, and divide by 2 for estimates
+
+INTERPRETING BIDIRECTIONAL TRAFFIC:
+- If instance A (IP 10.0.1.5) sends data to instance B (IP 10.0.2.9):
+  - You will see: srcaddr=10.0.1.5, dstaddr=10.0.2.9, bytes=X (the request)
+  - You will ALSO see: srcaddr=10.0.2.9, dstaddr=10.0.1.5, bytes=Y (the response)
+  - These are NOT the same flow — X is request data, Y is response data
+  - But if you see IDENTICAL byte counts in both directions, it's likely double-counting
+    from both ENIs logging the SAME packets
+
+- If you see "instance B sends Z GB to IP of instance B" — that's a data artifact:
+  - It means the query picked up the RECEIVER-SIDE flow log record
+  - The record shows srcaddr=sender, dstaddr=receiver, logged on receiver's ENI
+  - It does NOT mean the instance is sending traffic to itself
+
+RECOMMENDED QUERY PATTERN FOR ACCURATE TRAFFIC ANALYSIS:
+```sql
+-- Count only egress (sender-side) to avoid double-counting
+SELECT 
+    srcaddr,
+    dstaddr,
+    instance_id as source_instance,
+    az_id as source_az,
+    SUM(bytes) / 1073741824.0 as gb_transferred,
+    COUNT(*) as flow_count
+FROM database.table
+WHERE partition_filters
+  AND flow_direction = 'egress'  -- Only sender-side records
+  AND log_status = 'OK'
+  AND action = 'ACCEPT'
+GROUP BY srcaddr, dstaddr, instance_id, az_id
+ORDER BY gb_transferred DESC
+LIMIT 100
+```
+
+If flow_direction column is NOT available:
+- State clearly in results: "Note: Flow logs may be recorded on both sender and
+  receiver ENIs. Actual transfer volume may be ~50% of reported totals if both
+  sides have flow logging enabled."
+- Cross-reference with CUR data transfer costs for ground truth on actual bytes billed
 
 VPC Flow Logs tools only available if vpc_flowlogs.enabled=true in config
 WHEN USER ASKS FOR COST OPTIMIZATION:

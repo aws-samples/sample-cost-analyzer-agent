@@ -360,3 +360,258 @@ Items 1 and 4 are quick wins. Item 5 is a prerequisite for item 2. Item 6 ties t
 6. **#7** — Inter-AZ correlation guidance in schema info (30 minutes)
 7. **#8** — EXPLAIN pre-check (1–2 hours)
 8. **#9** — Multi-account result aggregation (2–3 hours)
+
+---
+
+## Feature Improvements — AgentCore Platform Capabilities
+
+This section covers feature enhancements that leverage Amazon Bedrock AgentCore's managed platform capabilities. These go beyond code fixes — they add new functionality to the agent.
+
+---
+
+### Short Term (1–5 days each)
+
+#### F1. Short-Term Memory (Session Persistence)
+
+**Priority:** P0 | **Effort:** 1 day
+
+**What it offers:** Conversation continuity within a session. Users can ask follow-up questions like "now break that down by region" or "compare that to last month" without re-stating the full context. Currently, each invocation is stateless — the agent doesn't remember what was discussed earlier in the session.
+
+**How:** Remove `--disable-memory` from `deploy.sh`. Install `bedrock-agentcore[strands-agents]` and configure `AgentCoreMemorySessionManager` with short-term memory (STM) enabled. STM stores conversation history per session ID and automatically injects relevant context into each request.
+
+```python
+from bedrock_agentcore.memory.integrations.strands import AgentCoreMemorySessionManager
+
+session_manager = AgentCoreMemorySessionManager(
+    memory_id="cost-analyzer-memory",
+    session_id=session_id,
+    short_term_memory=True
+)
+agent = Agent(model=model, tools=tools, session_manager=session_manager)
+```
+
+**STM benefit for Glue Catalog & Partition Detection:**
+
+Currently, `get_cur_schema_info()` and `get_vpc_flowlog_schema_info()` are called once per conversation to discover schema, but results only live in the tool's return text. With STM:
+- Schema stays in working memory — the agent doesn't need to re-parse column lists for each query
+- Partition values discovered early (e.g., `partition_0=region, partition_1=year`) are remembered for all subsequent queries in the session
+- Failed query patterns (e.g., "column X doesn't exist") are avoided on retry — the agent won't attempt the same invalid column again
+
+---
+
+#### F2. Observability & Distributed Tracing
+
+**Priority:** P0 | **Effort:** 1 day
+
+**What it offers:** Visibility into what the agent is doing — which tools it calls, how long each takes, where latency comes from, and what errors occur. Currently, the agent uses basic Python `logging` with no structured tracing.
+
+**How:** AgentCore natively supports OpenTelemetry and CloudWatch. Add trace spans around tool calls, Athena queries, and STS role assumptions. Create a CloudWatch dashboard showing: queries/minute, average response time, tool call distribution, Athena scan costs, and error rates.
+
+**Value:** Debug slow queries ("why did this take 45 seconds?"), identify cost hotspots ("80% of Athena scan costs come from VPC queries"), and monitor agent health in production.
+
+---
+
+#### F3. Guardrails Integration
+
+**Priority:** P1 | **Effort:** 1 day
+
+**What it offers:** Platform-level enforcement of the agent's boundaries. Currently, the system prompt says "don't create resources" and regex patterns detect prompt injection — but these are advisory. Guardrails enforce it at the model layer.
+
+**How:** Create a Bedrock Guardrail with:
+- **Topic denial:** Block requests to create/modify/delete AWS resources
+- **Content filtering:** Block harmful content generation
+- **PII detection:** Redact account IDs or sensitive data in responses
+- **Word filters:** Block specific terms that indicate out-of-scope requests
+
+Attach the guardrail to the model invocation. No agent code changes needed — it's a model-level configuration.
+
+---
+
+#### F4. Code Interpreter for Data Visualization
+
+**Priority:** P1 | **Effort:** 2 days
+
+**What it offers:** The agent can generate charts, calculate trends, and produce formatted reports — not just raw tables. Currently, Athena returns tabular data and the agent formats it as markdown. With Code Interpreter, it can create bar charts, pie charts, trend lines, and executive summaries.
+
+**How:** Enable AgentCore's managed Code Interpreter tool. The agent writes Python code (matplotlib, pandas) that executes in a secure sandbox and returns images or formatted output.
+
+**Example interactions:**
+- "Show me a chart of my monthly costs for the last 6 months"
+- "Create a pie chart of cost distribution by service"
+- "Calculate the month-over-month growth rate"
+
+---
+
+#### F5. Result Caching
+
+**Priority:** P1 | **Effort:** 2 days
+
+**What it offers:** Faster responses and lower costs for repeated queries. Currently, every query hits Athena or Cost Explorer fresh — even if the same question was asked 5 minutes ago. CUR data doesn't change intra-day, and Cost Explorer data updates at most once daily.
+
+**How:** Implement a cache layer (DynamoDB or in-memory) keyed by:
+- SQL query hash + time window (for Athena)
+- API parameters hash + date (for Cost Explorer)
+
+Cache TTL: 1 hour for Cost Explorer, 6 hours for CUR queries (data is daily). Invalidate on new billing period.
+
+**Value:** 2nd query for "top EC2 costs last month" returns in <1 second instead of 5–15 seconds. Athena scan costs drop to zero for cached queries.
+
+---
+
+### Long Term (1–3 weeks each)
+
+#### F6. Long-Term Memory (Cross-Session Learning)
+
+**Priority:** P2 | **Effort:** 3 days
+
+**What it offers:** The agent remembers user preferences, past analyses, and organizational context across sessions. It gets smarter over time per user — like a FinOps analyst who knows your environment.
+
+**How:** Enable AgentCore Memory with long-term memory (LTM) strategies:
+- **Semantic memory:** Remembers facts ("Production workloads are in us-east-1 and eu-west-1")
+- **Summarization:** Condenses past sessions ("Last week, user investigated S3 egress costs and found CloudFront was misconfigured")
+- **User preferences:** Learns patterns ("User always wants AmortizedCost metric, prefers monthly granularity")
+
+```python
+session_manager = AgentCoreMemorySessionManager(
+    memory_id="cost-analyzer-memory",
+    session_id=session_id,
+    short_term_memory=True,
+    long_term_memory=True,
+    long_term_memory_strategies=["SEMANTIC", "SUMMARIZATION", "USER_PREFERENCE"]
+)
+```
+
+**Example:** After a few sessions, the agent proactively says: "Based on your previous analysis, your S3 egress costs have increased 20% since last month. Want me to investigate?"
+
+**LTM benefit for Glue Catalog & Partition Detection:**
+
+Long-term memory eliminates schema discovery entirely for returning users:
+
+| Memory Strategy | What to Store | Example |
+|----------------|---------------|---------|
+| **Semantic** | Table schemas, column names, partition structures | "CUR table `cur_db.cur_report` has `line_item_net_unblended_cost` column" |
+| **Semantic** | Account-to-table mappings | "Account 222 has VPC Flow Logs in `vpc_db.flow_logs`" |
+| **Semantic** | Partition format per table | "VPC Flow Logs use `partition_0=region, partition_1=year, partition_2=month, partition_3=day`" |
+| **Summarization** | Query patterns that worked/failed | "JOINs on VPC Flow Logs cause duplication — use simple aggregations" |
+| **Summarization** | Data availability windows | "VPC Flow Logs in account 333 only have data from March 2026 onwards" |
+| **User Preference** | Preferred cost metric, default time ranges | "User prefers AmortizedCost, usually asks about last month" |
+
+**Performance impact:**
+
+Without memory (current):
+```
+Session 1: "top EC2 instances by cost"
+  → get_cur_schema_info() via Glue API (5s)
+  → get_current_date_context() (1s)
+  → Write + execute query (10s)
+  Total: ~16s
+
+Session 2 (next day): "top S3 buckets by cost"
+  → get_cur_schema_info() AGAIN via Glue API (5s)
+  → get_current_date_context() (1s)
+  → Write + execute query (10s)
+  Total: ~16s
+```
+
+With LTM:
+```
+Session 2: "top S3 buckets by cost"
+  → Agent recalls from LTM: schema, partitions, working patterns
+  → get_current_date_context() (1s)
+  → Write optimized query immediately, execute (10s)
+  Total: ~11s (schema discovery eliminated)
+```
+
+The agent learns your infrastructure over time — table structures, partition formats, which columns exist, which query patterns work — and applies that knowledge immediately in future sessions.
+
+---
+
+#### F7. Scheduled Reports (Proactive Agent)
+
+**Priority:** P2 | **Effort:** 2–3 days
+
+**What it offers:** Automated cost reports delivered on a schedule — daily, weekly, or monthly — without human intervention. The agent becomes proactive instead of purely reactive.
+
+**How:** Use Amazon EventBridge scheduled rules to invoke the agent with predefined queries from `prompts.yaml`. Results are delivered via SNS (email), Slack webhook, or written to S3.
+
+**Example workflows:**
+- Daily: "What were yesterday's costs? Any anomalies?"
+- Weekly: "Compare this week to last week. Top 5 cost changes."
+- Monthly: "Full month cost report with optimization recommendations."
+
+---
+
+#### F8. Evaluation Framework
+
+**Priority:** P2 | **Effort:** 3–5 days
+
+**What it offers:** Automated testing of agent behavior — does it call the right tools, produce accurate results, and stay within its boundaries? AgentCore provides built-in evaluation capabilities.
+
+**How:** Build a test suite with scenarios:
+- "What are my top 5 services?" → Should call `get_cost_and_usage` (not Athena)
+- "Which EC2 instances cost the most?" → Should call `execute_cur_athena_query` (not Cost Explorer)
+- "Create an EC2 instance" → Should refuse politely
+
+Track metrics: tool selection accuracy, response relevance, boundary adherence, latency.
+
+---
+
+#### F9. AgentCore Identity for Multi-Tenant Access
+
+**Priority:** P3 | **Effort:** 1 week
+
+**What it offers:** Safe multi-user deployment where each user only sees costs for their authorized accounts. Currently, whoever invokes the agent can query all configured accounts.
+
+**How:** Use AgentCore Identity to map end users to specific account scopes:
+- User A (team lead) → sees all accounts
+- User B (developer) → sees only their team's account
+- User C (finance) → sees payer-level aggregates only
+
+The agent checks the caller's identity and filters tool access accordingly.
+
+---
+
+#### F10. Multi-Agent Architecture
+
+**Priority:** P3 | **Effort:** 2 weeks
+
+**What it offers:** Specialized sub-agents that are faster, simpler, and independently improvable. Instead of one agent with 51 tools, split into focused specialists.
+
+**How:** Use Strands' multi-agent patterns (Agent-as-Tool or Swarm):
+- **Billing Agent:** Cost Explorer, Budgets, Savings Plans, Pricing (43 APIs)
+- **Resource Agent:** CUR Athena queries for resource-level analysis
+- **Network Agent:** VPC Flow Logs analysis
+- **Advisor Agent:** Optimization recommendations + AWS Knowledge search
+- **Orchestrator:** Routes user queries to the right specialist
+
+**Value:** Each agent has a smaller tool set → faster tool selection, lower token usage, easier to test and improve independently.
+
+---
+
+#### F11. AgentCore Gateway for Tool Management
+
+**Priority:** P3 | **Effort:** 1 week
+
+**What it offers:** Decouple tools from the agent deployment. Add, update, or remove tools without redeploying the agent. Tools become managed API endpoints accessible by multiple agents.
+
+**How:** Register billing tools and Athena tools as Gateway targets. The agent calls tools through the Gateway instead of directly. New tools (e.g., a CloudWatch metrics tool) can be added to the Gateway without touching agent code.
+
+---
+
+### Priority Matrix
+
+| # | Feature | Effort | Impact | Priority |
+|---|---------|--------|--------|----------|
+| F1 | Short-term memory | 1 day | High | P0 |
+| F2 | Observability/tracing | 1 day | High | P0 |
+| F3 | Guardrails | 1 day | Medium | P1 |
+| F4 | Code Interpreter | 2 days | High | P1 |
+| F5 | Result caching | 2 days | Medium | P1 |
+| F6 | Long-term memory | 3 days | High | P2 |
+| F7 | Scheduled reports | 2–3 days | Medium | P2 |
+| F8 | Evaluation framework | 3–5 days | High | P2 |
+| F9 | Multi-tenant identity | 1 week | Medium | P3 |
+| F10 | Multi-agent architecture | 2 weeks | Medium | P3 |
+| F11 | Gateway for tools | 1 week | Medium | P3 |
+
+**Recommended execution order:** F1 → F2 → F3 → F4 → F5 → F6 → F8 → F7 → F9 → F10 → F11
